@@ -9,7 +9,7 @@ from sqlalchemy.orm import aliased
 
 from fleetpulse_backend.alerts.store import to_message
 from fleetpulse_backend.api.deps import CurrentUser, current_user, require_role
-from fleetpulse_backend.api.events import AlertEventPublisher
+from fleetpulse_backend.api.events import Publisher
 from fleetpulse_backend.api.problems import problem_responses
 from fleetpulse_backend.db.models import Alert, AlertRule, ComparisonOperator, Role, User, Vessel
 from fleetpulse_backend.db.session import SessionDep
@@ -96,8 +96,8 @@ def to_out(alert: Alert, vessel: Vessel, acknowledged_by: str | None) -> AlertOu
     )
 
 
-def get_publisher(request: Request) -> AlertEventPublisher:
-    publisher: AlertEventPublisher = request.app.state.alert_events
+def get_publisher(request: Request) -> Publisher:
+    publisher: Publisher = request.app.state.publisher
     return publisher
 
 
@@ -152,7 +152,7 @@ async def acknowledge_alert(
     alert_id: uuid.UUID,
     user: CurrentUser,
     session: SessionDep,
-    publisher: Annotated[AlertEventPublisher, Depends(get_publisher)],
+    publisher: Annotated[Publisher, Depends(get_publisher)],
 ) -> AlertOut:
     """Marks an alert as seen. Repeating it is harmless; resolved alerts cannot be
     acknowledged."""
@@ -169,7 +169,7 @@ async def acknowledge_alert(
         await session.commit()
         vessel = await session.get(Vessel, alert.vessel_id)
         assert vessel is not None
-        await publisher.publish(
+        await publisher.publish_alert(
             AlertEvent(event="acknowledged", alert=to_message(alert, vessel.identifier))
         )
     return await get_alert(alert_id, session)

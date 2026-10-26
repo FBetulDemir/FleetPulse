@@ -11,12 +11,13 @@ from influxdb_client_3 import InfluxDBClient3
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from fleetpulse_backend.api import alerts, auth, health, telemetry, vessels
+from fleetpulse_backend.api import alerts, auth, demo, health, telemetry, vessels
 from fleetpulse_backend.api.deps import ACCESS_COOKIE, authenticate
-from fleetpulse_backend.api.events import AlertEventPublisher, MqttAlertEventPublisher
+from fleetpulse_backend.api.events import MqttPublisher, Publisher
 from fleetpulse_backend.api.hub import LiveHub, Subscriber
 from fleetpulse_backend.api.problems import install_problem_handlers
-from fleetpulse_backend.api.relay import relay_mqtt
+from fleetpulse_backend.api.rate_limit import RateLimiter
+from fleetpulse_backend.api.relay import MqttLink
 from fleetpulse_backend.api.schemas import SubscriptionMessage
 from fleetpulse_backend.config import Settings
 from fleetpulse_backend.db.session import create_engine, create_sessionmaker
@@ -81,9 +82,11 @@ def create_app(
     settings: Settings | None = None,
     *,
     relay: bool = True,
-    alert_events: AlertEventPublisher | None = None,
+    publisher: Publisher | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
+    hub = LiveHub()
+    link = MqttLink(settings, hub)
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -96,13 +99,12 @@ def create_app(
                 token=settings.influx_token,
             )
         )
-        app.state.hub = LiveHub()
-        relay_task = asyncio.create_task(relay_mqtt(settings, app.state.hub)) if relay else None
+        link_task = asyncio.create_task(link.run()) if relay else None
         yield
-        if relay_task is not None:
-            relay_task.cancel()
+        if link_task is not None:
+            link_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
-                await relay_task
+                await link_task
         app.state.telemetry.close()
         await engine.dispose()
 
@@ -114,13 +116,16 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = settings
-    app.state.alert_events = alert_events or MqttAlertEventPublisher(settings)
+    app.state.hub = hub
+    app.state.publisher = publisher or MqttPublisher(link)
+    app.state.scenario_limiter = RateLimiter(demo.SCENARIO_LIMIT, demo.SCENARIO_WINDOW_S)
     install_problem_handlers(app)
     app.include_router(auth.router)
     app.include_router(health.router)
     app.include_router(vessels.router)
     app.include_router(telemetry.router)
     app.include_router(alerts.router)
+    app.include_router(demo.router)
 
     @app.websocket("/ws")
     async def live_events(websocket: WebSocket) -> None:
