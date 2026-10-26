@@ -70,7 +70,7 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
 
     @app.websocket("/ws")
     async def live_events(websocket: WebSocket) -> None:
-        # Authentication is added together with login (week 3).
+        # Not authenticated yet; authentication is added together with login.
         await websocket.accept()
         hub: LiveHub = websocket.app.state.hub
         subscriber = hub.connect()

@@ -1,0 +1,20 @@
+<a class="skip-link" href="#main">Skip to content</a>
+
+<mat-toolbar class="toolbar">
+  <span class="brand">
+    <mat-icon>directions_boat</mat-icon>
+    FleetPulse
+  </span>
+  <span class="spacer"></span>
+  <span class="simulated" title="All vessels and readings on this site are simulated">
+    Simulated data
+  </span>
+  <span class="socket" [class]="'socket--' + socketState()" role="status" aria-live="polite">
+    <span class="socket-dot" aria-hidden="true"></span>
+    {{ socketLabel() }}
+  </span>
+</mat-toolbar>
+
+<main id="main" class="content" tabindex="-1">
+  <router-outlet />
+</main>

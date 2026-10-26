@@ -1,7 +1,9 @@
 """End-to-end smoke test for a running stack (`docker compose up`).
 
-Passes when telemetry flows simulator -> MQTT -> worker -> InfluxDB, and
-simulator -> MQTT -> API -> WebSocket.
+Passes when:
+- the web server serves the Angular app, including deep links,
+- telemetry flows simulator -> MQTT -> API -> WebSocket, through the web server's proxy,
+- telemetry flows simulator -> MQTT -> worker -> InfluxDB.
 """
 
 import asyncio
@@ -13,10 +15,30 @@ import urllib.request
 from typing import Any
 
 from websockets.asyncio.client import connect
+from websockets.exceptions import InvalidHandshake
 
-WS_URL = "ws://localhost:8000/ws"
+WEB_URL = "http://localhost:8080"
+WS_URL = "ws://localhost:8080/ws"
 INFLUX_URL = "http://localhost:8181"
 TIMEOUT_S = 90
+
+
+def serves_app_on_deep_link() -> bool:
+    # A route the server does not know must still return the app (client-side routing).
+    with urllib.request.urlopen(f"{WEB_URL}/some/deep/link", timeout=5) as response:
+        return "<app-root" in response.read().decode()
+
+
+async def wait_for_web_app(deadline: float) -> None:
+    while True:
+        try:
+            if await asyncio.to_thread(serves_app_on_deep_link):
+                return
+        except OSError:
+            pass
+        if time.monotonic() > deadline:
+            raise TimeoutError("web app not served")
+        await asyncio.sleep(2)
 
 
 async def wait_for_live_telemetry(deadline: float) -> dict[str, Any]:
@@ -29,7 +51,7 @@ async def wait_for_live_telemetry(deadline: float) -> dict[str, Any]:
                         event: dict[str, Any] = json.loads(await ws.recv())
                         if event["type"] == "telemetry":
                             return event
-        except OSError:
+        except (OSError, InvalidHandshake):
             if time.monotonic() > deadline:
                 raise
             await asyncio.sleep(2)
@@ -47,7 +69,7 @@ def stored_point_count() -> int:
 async def wait_for_stored_telemetry(deadline: float) -> int:
     while True:
         try:
-            count = stored_point_count()
+            count = await asyncio.to_thread(stored_point_count)
             if count > 0:
                 return count
         except OSError:
@@ -59,6 +81,8 @@ async def wait_for_stored_telemetry(deadline: float) -> int:
 
 async def main() -> None:
     deadline = time.monotonic() + TIMEOUT_S
+    await wait_for_web_app(deadline)
+    print("web app served")
     event = await wait_for_live_telemetry(deadline)
     print(f"live telemetry received over WebSocket from {event['vessel_id']}")
     count = await wait_for_stored_telemetry(deadline)
@@ -68,6 +92,6 @@ async def main() -> None:
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (TimeoutError, OSError) as error:
+    except (TimeoutError, OSError, InvalidHandshake) as error:
         print(f"smoke test failed: {error!r}", file=sys.stderr)
         sys.exit(1)
