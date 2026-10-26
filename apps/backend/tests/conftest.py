@@ -16,6 +16,7 @@ from fleetpulse_backend.auth.passwords import hash_password
 from fleetpulse_backend.config import Settings
 from fleetpulse_backend.db.migrate import upgrade
 from fleetpulse_backend.db.models import Role, User
+from fleetpulse_contracts.alerts import AlertEvent
 
 Sessionmaker = async_sessionmaker[AsyncSession]
 
@@ -91,12 +92,30 @@ class DbClient:
 
 async def _empty_tables(sessionmaker: Sessionmaker) -> None:
     async with sessionmaker() as session, session.begin():
-        await session.execute(text("TRUNCATE vessels, users, refresh_tokens"))
+        await session.execute(
+            text("TRUNCATE vessels, users, refresh_tokens, alerts, alert_rules CASCADE")
+        )
+
+
+class RecordingPublisher:
+    """Collects alert events instead of sending them to MQTT."""
+
+    def __init__(self) -> None:
+        self.events: list[AlertEvent] = []
+
+    async def publish(self, event: AlertEvent) -> None:
+        self.events.append(event)
 
 
 @contextlib.contextmanager
-def make_db_client(database_url: str, **settings: Any) -> Iterator[DbClient]:
-    app = create_app(Settings(database_url=database_url, **settings), relay=False)
+def make_db_client(
+    database_url: str, publisher: RecordingPublisher | None = None, **settings: Any
+) -> Iterator[DbClient]:
+    app = create_app(
+        Settings(database_url=database_url, **settings),
+        relay=False,
+        alert_events=publisher or RecordingPublisher(),
+    )
     with TestClient(app) as client:
         db = DbClient(client)
         db.run(_empty_tables)

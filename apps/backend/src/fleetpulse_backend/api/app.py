@@ -11,8 +11,9 @@ from influxdb_client_3 import InfluxDBClient3
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from fleetpulse_backend.api import auth, health, telemetry, vessels
+from fleetpulse_backend.api import alerts, auth, health, telemetry, vessels
 from fleetpulse_backend.api.deps import ACCESS_COOKIE, authenticate
+from fleetpulse_backend.api.events import AlertEventPublisher, MqttAlertEventPublisher
 from fleetpulse_backend.api.hub import LiveHub, Subscriber
 from fleetpulse_backend.api.problems import install_problem_handlers
 from fleetpulse_backend.api.relay import relay_mqtt
@@ -76,7 +77,12 @@ async def send_events(websocket: WebSocket, subscriber: Subscriber) -> None:
         await websocket.send_json(event)
 
 
-def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    relay: bool = True,
+    alert_events: AlertEventPublisher | None = None,
+) -> FastAPI:
     settings = settings or Settings()
 
     @contextlib.asynccontextmanager
@@ -108,11 +114,13 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.state.alert_events = alert_events or MqttAlertEventPublisher(settings)
     install_problem_handlers(app)
     app.include_router(auth.router)
     app.include_router(health.router)
     app.include_router(vessels.router)
     app.include_router(telemetry.router)
+    app.include_router(alerts.router)
 
     @app.websocket("/ws")
     async def live_events(websocket: WebSocket) -> None:

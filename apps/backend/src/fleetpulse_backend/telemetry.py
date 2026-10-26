@@ -3,12 +3,12 @@
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from typing import Any
 
 from influxdb_client_3 import InfluxDBClient3
 from influxdb_client_3.exceptions.exceptions import InfluxDB3ClientQueryError
 
+from fleetpulse_backend.metrics import Metric
 from fleetpulse_backend.worker.ingest import MEASUREMENT
 from fleetpulse_contracts import TelemetryMessage
 
@@ -17,17 +17,6 @@ MAX_RANGE = timedelta(hours=72)
 # Enough points for a smooth chart, few enough to stay fast.
 MAX_BUCKETS = 360
 BUCKET_STEPS_S = [1, 5, 10, 30, 60, 300, 600, 900, 1800, 3600]
-
-
-class Metric(StrEnum):
-    """Metrics with meaningful averages. Course is left out on purpose: it is an angle,
-    and the average of 359° and 1° is 180°, which is wrong."""
-
-    SPEED_KNOTS = "speed_knots"
-    BATTERY_PERCENT = "battery_percent"
-    BATTERY_VOLTAGE = "battery_voltage"
-    MOTOR_TEMPERATURE_C = "motor_temperature_c"
-    AMBIENT_TEMPERATURE_C = "ambient_temperature_c"
 
 
 @dataclass(frozen=True)

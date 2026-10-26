@@ -10,12 +10,8 @@ from fleetpulse_backend.api.deps import current_user
 from fleetpulse_backend.api.problems import problem_responses
 from fleetpulse_backend.db.models import Vessel
 from fleetpulse_backend.db.session import SessionDep
-from fleetpulse_backend.telemetry import (
-    MAX_RANGE,
-    Metric,
-    TelemetryStore,
-    TelemetryUnavailableError,
-)
+from fleetpulse_backend.metrics import Metric
+from fleetpulse_backend.telemetry import MAX_RANGE, TelemetryStore, TelemetryUnavailableError
 from fleetpulse_contracts import TelemetryMessage
 
 router = APIRouter(

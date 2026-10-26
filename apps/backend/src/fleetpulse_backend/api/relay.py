@@ -15,7 +15,9 @@ from fleetpulse_backend.api.hub import Event, LiveHub
 from fleetpulse_backend.config import Settings
 from fleetpulse_backend.mqtt import RECONNECT_DELAY_S, payload_bytes
 from fleetpulse_contracts import StatusMessage, TelemetryMessage
+from fleetpulse_contracts.alerts import AlertEvent
 from fleetpulse_contracts.topics import (
+    ALERTS_TOPIC,
     STATUS_SUBSCRIPTION,
     TELEMETRY_SUBSCRIPTION,
     vessel_id_from_topic,
@@ -25,6 +27,16 @@ logger = logging.getLogger("fleetpulse.api.relay")
 
 
 def to_event(topic: str, payload: bytes) -> tuple[str, Event] | None:
+    if topic == ALERTS_TOPIC:
+        try:
+            alert = AlertEvent.model_validate_json(payload)
+        except ValidationError:
+            return None
+        return alert.alert.vessel_id, {
+            "type": "alert",
+            "event": alert.event,
+            "alert": alert.alert.model_dump(mode="json"),
+        }
     vessel_id = vessel_id_from_topic(topic)
     if vessel_id is None:
         return None
@@ -60,6 +72,7 @@ async def relay_mqtt(settings: Settings, hub: LiveHub) -> None:
             ) as client:
                 await client.subscribe(TELEMETRY_SUBSCRIPTION, qos=0)
                 await client.subscribe(STATUS_SUBSCRIPTION, qos=1)
+                await client.subscribe(ALERTS_TOPIC, qos=1)
                 logger.info("relaying live vessel events")
                 async for message in client.messages:
                     result = to_event(str(message.topic), payload_bytes(message))
