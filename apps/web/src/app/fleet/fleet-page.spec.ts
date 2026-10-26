@@ -58,7 +58,12 @@ describe('FleetPage', () => {
 
   it('shows registered vessels with their live readings', async () => {
     live.set([
-      { vesselId: 'vessel-001', connection: 'online', telemetry: telemetry() },
+      {
+        vesselId: 'vessel-001',
+        connection: 'online',
+        // A current reading, so the vessel counts as live rather than stale.
+        telemetry: telemetry({ timestamp: new Date().toISOString() }),
+      },
       {
         vesselId: 'vessel-002',
         connection: 'offline',
@@ -78,6 +83,17 @@ describe('FleetPage', () => {
     expect(rowFor('Hönö Runner')).toContain('low');
     expect(rowFor('Älvskutt')).toContain('vessel-001');
     expect(rowFor('Älvskutt')).toContain('8.2 kn');
+    // Key figures summarise the same rows.
+    const kpi = (label: string) =>
+      [...page().querySelectorAll('.kpi')]
+        .find((k) => k.querySelector('dt')?.textContent?.trim() === label)
+        ?.querySelector('dd')
+        ?.textContent?.replace(/\s+/g, ' ')
+        .trim();
+    expect(kpi('Vessels')).toBe('2');
+    expect(kpi('Reporting live')).toBe('1 of 2');
+    expect(kpi('Offline or stale')).toBe('warning 1');
+    expect(kpi('Average battery')).toBe('44 % 1 low');
     // Registered vessels link to their detail page.
     const link = page().querySelector<HTMLAnchorElement>('a.vessel-name');
     expect(link?.getAttribute('href')).toMatch(/^\/vessels\//);
