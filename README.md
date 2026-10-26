@@ -23,7 +23,7 @@ Vessel simulator ──MQTT──▶ Mosquitto ──▶ Worker ──▶ Influx
 Requires [Docker](https://docs.docker.com/get-docker/) and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-docker compose up --build          # everything: web app, API, worker, simulator, broker, InfluxDB
+docker compose up --build          # everything: web app, API, worker, simulator, PostgreSQL, broker, InfluxDB
 uv sync                            # Python tooling for tests and scripts
 uv run python scripts/smoke_test.py
 ```
@@ -37,10 +37,24 @@ uv run python scripts/smoke_test.py
 Backend (Python):
 
 ```sh
-uv run pytest         # tests
+uv run pytest         # tests (database tests start PostgreSQL in Docker automatically)
 uv run ruff check .   # lint
 uv run mypy           # type check
 uvx pre-commit install
+```
+
+Database changes: edit the models in `apps/backend/src/fleetpulse_backend/db/models.py`, then
+
+```sh
+docker compose up -d postgres
+uv run alembic -c apps/backend/alembic.ini revision --autogenerate -m "describe the change"
+```
+
+API changes: the frontend's TypeScript types are generated from the API, and CI fails if they are out of date.
+
+```sh
+uv run python scripts/export_openapi.py   # writes apps/web/openapi.json
+cd apps/web && npm run api:generate       # writes src/app/api/schema.d.ts
 ```
 
 Frontend (Angular), with hot reload against the backend running in Docker:

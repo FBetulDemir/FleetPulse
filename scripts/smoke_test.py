@@ -2,6 +2,7 @@
 
 Passes when:
 - the web server serves the Angular app, including deep links,
+- the API serves the vessel registry from PostgreSQL (migrated and seeded),
 - telemetry flows simulator -> MQTT -> API -> WebSocket, through the web server's proxy,
 - telemetry flows simulator -> MQTT -> worker -> InfluxDB.
 """
@@ -38,6 +39,25 @@ async def wait_for_web_app(deadline: float) -> None:
             pass
         if time.monotonic() > deadline:
             raise TimeoutError("web app not served")
+        await asyncio.sleep(2)
+
+
+def registered_vessel_count() -> int:
+    with urllib.request.urlopen(f"{WEB_URL}/api/v1/vessels", timeout=5) as response:
+        page: dict[str, Any] = json.load(response)
+    return int(page["total"])
+
+
+async def wait_for_vessel_registry(deadline: float) -> int:
+    while True:
+        try:
+            count = await asyncio.to_thread(registered_vessel_count)
+            if count > 0:
+                return count
+        except OSError:
+            pass
+        if time.monotonic() > deadline:
+            raise TimeoutError("vessel registry not available")
         await asyncio.sleep(2)
 
 
@@ -83,6 +103,8 @@ async def main() -> None:
     deadline = time.monotonic() + TIMEOUT_S
     await wait_for_web_app(deadline)
     print("web app served")
+    vessels = await wait_for_vessel_registry(deadline)
+    print(f"{vessels} vessels registered in PostgreSQL, served through the API")
     event = await wait_for_live_telemetry(deadline)
     print(f"live telemetry received over WebSocket from {event['vessel_id']}")
     count = await wait_for_stored_telemetry(deadline)
