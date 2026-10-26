@@ -32,6 +32,8 @@ export interface VesselRow {
   vesselType: VesselType | null;
   freshness: Freshness;
   status: NavigationStatus | null;
+  latitude: number | null;
+  longitude: number | null;
   speedKnots: number | null;
   courseDegrees: number | null;
   batteryPercent: number | null;
@@ -75,6 +77,8 @@ export function toRow(
     vesselType: vessel?.vessel_type ?? null,
     freshness: freshness(live?.connection ?? null, ageMs),
     status: telemetry?.status ?? null,
+    latitude: telemetry?.latitude ?? null,
+    longitude: telemetry?.longitude ?? null,
     speedKnots: telemetry?.speed_knots ?? null,
     courseDegrees: telemetry?.course_degrees ?? null,
     batteryPercent: telemetry?.battery_percent ?? null,

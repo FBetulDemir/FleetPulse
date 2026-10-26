@@ -1,0 +1,123 @@
+// Leaflet's own stylesheet, loaded with this lazily loaded component.
+@use 'leaflet/dist/leaflet';
+
+app-fleet-map {
+  display: block;
+}
+
+.fp-map-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium);
+}
+
+.fp-map {
+  height: 420px;
+  // Keep Leaflet's panes below Material overlays such as menus and dialogs.
+  z-index: 0;
+  background: var(--mat-sys-surface-container);
+}
+
+// OpenStreetMap has no dark tiles: invert them and rotate the hue back, so water
+// stays blue-ish and land stays neutral. Markers and labels are not affected.
+.fp-map-dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
+.fp-map-fit.mat-mdc-outlined-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 500;
+  background: var(--mat-sys-surface);
+}
+
+// Markers: status color plus shape (arrow when moving), and a text label.
+.fp-marker {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  color: var(--fp-status-ok);
+
+  &--stale,
+  &--waiting {
+    color: var(--fp-status-warning);
+  }
+
+  &--offline {
+    color: var(--mat-sys-error);
+  }
+
+  &--dot::before {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    // A ring in the map's surface color keeps the marker visible on any tile.
+    box-shadow: 0 0 0 2px var(--mat-sys-surface);
+  }
+
+  &--offline.fp-marker--dot::before {
+    background: var(--mat-sys-surface);
+    border: 3px solid currentColor;
+  }
+
+  &--arrow::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 22px solid currentColor;
+    filter: drop-shadow(0 0 1px var(--mat-sys-surface)) drop-shadow(0 0 1px var(--mat-sys-surface));
+  }
+}
+
+.leaflet-tooltip.fp-marker-label {
+  padding: 1px 6px;
+  border: none;
+  border-radius: var(--mat-sys-corner-extra-small);
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-label-medium);
+  box-shadow: none;
+
+  &::before {
+    display: none;
+  }
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface);
+}
+
+.fp-popup {
+  display: grid;
+  gap: 4px;
+  font: var(--mat-sys-body-medium);
+
+  a {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.leaflet-control-attribution {
+  font: var(--mat-sys-label-small);
+}
+
+@media (max-width: 600px) {
+  .fp-map {
+    height: 320px;
+  }
+}
