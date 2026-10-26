@@ -2,6 +2,9 @@
 
 A vessel loops over its route. Each time it reaches its home port (the first waypoint)
 it docks: a short stop if the battery is healthy, or until charged if it is low.
+
+For demos, a vessel can act out a failure scenario (see `start_scenario`). Scenarios are
+fast enough to raise an alert within seconds, and end by themselves.
 """
 
 import math
@@ -10,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from fleetpulse_contracts import NavigationStatus, TelemetryMessage
+from fleetpulse_contracts.commands import Scenario
 from fleetpulse_simulator.geo import (
     METERS_PER_NAUTICAL_MILE,
     Position,
@@ -26,6 +30,20 @@ CHARGE_BELOW_PERCENT = 60.0
 CHARGE_UNTIL_PERCENT = 95.0
 SHORT_STOP_S = 60.0
 MOTOR_TEMP_TIME_CONSTANT_S = 120.0
+
+SCENARIO_DURATION_S = {
+    Scenario.OVERHEAT: 90.0,
+    Scenario.BATTERY_DRAIN: 120.0,
+    Scenario.GO_OFFLINE: 75.0,  # longer than the 60 s it takes to be reported offline
+    Scenario.INVALID_DATA: 20.0,
+}
+# A cooling fault: the motor heads for this temperature whatever the speed, even docked.
+OVERHEAT_TARGET_C = 95.0
+OVERHEAT_TIME_CONSTANT_S = 15.0
+DRAIN_EXTRA_PERCENT_PER_S = 1.5
+DRAINED_FLOOR_PERCENT = 5.0
+# A drained demo battery is "swapped" when the scenario ends, so the demo heals itself.
+RESTORED_BATTERY_PERCENT = 80.0
 
 
 @dataclass
@@ -45,6 +63,8 @@ class Vessel:
     _target_index: int = field(default=1, init=False)
     _charging: bool = field(default=False, init=False)
     _elapsed_s: float = field(default=0.0, init=False)
+    scenario: Scenario | None = field(default=None, init=False)
+    scenario_remaining_s: float = field(default=0.0, init=False)
 
     def __post_init__(self) -> None:
         if len(self.route) < 2:
@@ -58,13 +78,43 @@ class Vessel:
         # Slow drift around 12 °C so the value is not perfectly flat.
         return 12.0 + 2.0 * math.sin(self._elapsed_s / 3600.0)
 
+    @property
+    def silent(self) -> bool:
+        """The device sends nothing (it has gone offline)."""
+        return self.scenario is Scenario.GO_OFFLINE
+
+    @property
+    def sends_invalid_data(self) -> bool:
+        return self.scenario is Scenario.INVALID_DATA
+
+    def start_scenario(self, scenario: Scenario) -> None:
+        if scenario is Scenario.RESET:
+            self._end_scenario()
+            return
+        self.scenario = scenario
+        self.scenario_remaining_s = SCENARIO_DURATION_S[scenario]
+
     def step(self, dt_s: float) -> None:
         self._elapsed_s += dt_s
         if self.status is NavigationStatus.DOCKED:
             self._step_docked(dt_s)
         else:
             self._step_underway(dt_s)
+        if self.scenario is Scenario.BATTERY_DRAIN:
+            self.battery_percent = max(
+                DRAINED_FLOOR_PERCENT, self.battery_percent - DRAIN_EXTRA_PERCENT_PER_S * dt_s
+            )
         self._update_motor_temperature(dt_s)
+        if self.scenario is not None:
+            self.scenario_remaining_s -= dt_s
+            if self.scenario_remaining_s <= 0:
+                self._end_scenario()
+
+    def _end_scenario(self) -> None:
+        if self.scenario is Scenario.BATTERY_DRAIN:
+            self.battery_percent = max(self.battery_percent, RESTORED_BATTERY_PERCENT)
+        self.scenario = None
+        self.scenario_remaining_s = 0.0
 
     def _step_docked(self, dt_s: float) -> None:
         self.speed_knots = 0.0
@@ -107,7 +157,14 @@ class Vessel:
 
     def _update_motor_temperature(self, dt_s: float) -> None:
         target = self.ambient_temperature_c + 8.0 + 4.0 * self.speed_knots
-        alpha = 1 - math.exp(-dt_s / MOTOR_TEMP_TIME_CONSTANT_S)
+        time_constant = MOTOR_TEMP_TIME_CONSTANT_S
+        if self.scenario is Scenario.OVERHEAT:
+            target = OVERHEAT_TARGET_C
+            time_constant = OVERHEAT_TIME_CONSTANT_S
+        elif self.motor_temperature_c > target + 10:
+            # Cooling works again after a fault: bring the motor back down quickly.
+            time_constant = OVERHEAT_TIME_CONSTANT_S
+        alpha = 1 - math.exp(-dt_s / time_constant)
         self.motor_temperature_c += (target - self.motor_temperature_c) * alpha
 
     def telemetry(self, now: datetime) -> TelemetryMessage:

@@ -15,6 +15,10 @@ def status_topic(vessel_id: str) -> str:
     return f"{PREFIX}/vessels/{vessel_id}/status"
 
 
+def command_topic(vessel_id: str) -> str:
+    return f"{PREFIX}/vessels/{vessel_id}/commands"
+
+
 def vessel_id_from_topic(topic: str) -> str | None:
     """Return the vessel id from a vessel topic, or None if the topic has another shape."""
     parts = topic.split("/")

@@ -1134,6 +1134,104 @@
           }
         }
       }
+    },
+    "/api/v1/demo/scenarios": {
+      "post": {
+        "tags": [
+          "demo"
+        ],
+        "summary": "Trigger Scenario",
+        "description": "Sends the scenario to the vessel's device. 202: the effect shows up in the live\ndata and alerts within seconds, not in this response.",
+        "operationId": "trigger_scenario_api_v1_demo_scenarios_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioAccepted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1583,6 +1681,54 @@
           "viewer"
         ],
         "title": "Role"
+      },
+      "Scenario": {
+        "type": "string",
+        "enum": [
+          "overheat",
+          "battery_drain",
+          "go_offline",
+          "invalid_data",
+          "reset"
+        ],
+        "title": "Scenario",
+        "description": "Demo failures the simulator can act out. Each ends by itself after a while."
+      },
+      "ScenarioAccepted": {
+        "properties": {
+          "vessel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vessel Id"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vessel_id",
+          "scenario"
+        ],
+        "title": "ScenarioAccepted"
+      },
+      "ScenarioRequest": {
+        "properties": {
+          "vessel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vessel Id"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vessel_id",
+          "scenario"
+        ],
+        "title": "ScenarioRequest"
       },
       "TelemetryHistory": {
         "properties": {

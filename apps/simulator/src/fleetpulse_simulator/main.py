@@ -2,15 +2,18 @@
 
 import asyncio
 import contextlib
+import json
 import logging
 import random
 import sys
 from datetime import UTC, datetime
 
 import aiomqtt
+from pydantic import ValidationError
 
-from fleetpulse_contracts import ConnectionState, StatusMessage
-from fleetpulse_contracts.topics import status_topic, telemetry_topic
+from fleetpulse_contracts import ConnectionState, StatusMessage, TelemetryMessage
+from fleetpulse_contracts.commands import CommandMessage, Scenario
+from fleetpulse_contracts.topics import command_topic, status_topic, telemetry_topic
 from fleetpulse_simulator.config import Settings
 from fleetpulse_simulator.routes import ROUTES
 from fleetpulse_simulator.vessel import Vessel
@@ -38,6 +41,86 @@ def build_fleet(settings: Settings) -> list[Vessel]:
     return fleet
 
 
+def status_payload(vessel: Vessel, state: ConnectionState) -> str:
+    return StatusMessage(
+        vessel_id=vessel.vessel_id,
+        device_id=vessel.device_id,
+        state=state,
+        timestamp=datetime.now(UTC),
+    ).model_dump_json()
+
+
+def invalid_payload(message: TelemetryMessage) -> str:
+    """What a faulty sensor might send: an impossible battery level."""
+    data = message.model_dump(mode="json")
+    data["battery_percent"] = 250
+    return json.dumps(data)
+
+
+def parse_command(payload: bytes) -> Scenario | None:
+    try:
+        return CommandMessage.model_validate_json(payload).scenario
+    except ValidationError:
+        return None
+
+
+class Ticker:
+    """Time since the previous tick, kept across reconnects."""
+
+    def __init__(self) -> None:
+        self._loop = asyncio.get_running_loop()
+        self._last = self._loop.time()
+
+    def elapsed(self) -> float:
+        now = self._loop.time()
+        elapsed, self._last = now - self._last, now
+        return elapsed
+
+
+async def publish_telemetry(
+    client: aiomqtt.Client, vessel: Vessel, ticker: Ticker, interval_s: float
+) -> None:
+    announced_offline = False
+    while True:
+        vessel.step(ticker.elapsed())
+        if vessel.silent:
+            # Going offline on purpose: say so once, then send nothing.
+            if not announced_offline:
+                await client.publish(
+                    status_topic(vessel.vessel_id),
+                    status_payload(vessel, ConnectionState.OFFLINE),
+                    qos=1,
+                    retain=True,
+                )
+                announced_offline = True
+        else:
+            if announced_offline:
+                await client.publish(
+                    status_topic(vessel.vessel_id),
+                    status_payload(vessel, ConnectionState.ONLINE),
+                    qos=1,
+                    retain=True,
+                )
+                announced_offline = False
+            message = vessel.telemetry(datetime.now(UTC))
+            payload = (
+                invalid_payload(message) if vessel.sends_invalid_data else message.model_dump_json()
+            )
+            await client.publish(telemetry_topic(vessel.vessel_id), payload, qos=0)
+        await asyncio.sleep(interval_s)
+
+
+async def listen_for_commands(client: aiomqtt.Client, vessel: Vessel) -> None:
+    async for message in client.messages:
+        payload = message.payload if isinstance(message.payload, bytes) else b""
+        scenario = parse_command(payload)
+        if scenario is None:
+            logger.warning("%s: ignored an invalid command", vessel.vessel_id)
+            continue
+        vessel.start_scenario(scenario)
+        logger.info("%s: scenario %s", vessel.vessel_id, scenario.value)
+
+
 async def run_vessel(vessel: Vessel, settings: Settings) -> None:
     offline = StatusMessage(
         vessel_id=vessel.vessel_id, device_id=vessel.device_id, state=ConnectionState.OFFLINE
@@ -45,8 +128,7 @@ async def run_vessel(vessel: Vessel, settings: Settings) -> None:
     will = aiomqtt.Will(
         status_topic(vessel.vessel_id), offline.model_dump_json(), qos=1, retain=True
     )
-    loop = asyncio.get_running_loop()
-    last_tick = loop.time()
+    ticker = Ticker()
 
     while True:
         try:
@@ -56,35 +138,31 @@ async def run_vessel(vessel: Vessel, settings: Settings) -> None:
                 identifier=vessel.device_id,
                 will=will,
             ) as client:
-                online = StatusMessage(
-                    vessel_id=vessel.vessel_id,
-                    device_id=vessel.device_id,
-                    state=ConnectionState.ONLINE,
-                    timestamp=datetime.now(UTC),
-                )
+                await client.subscribe(command_topic(vessel.vessel_id), qos=1)
                 await client.publish(
-                    status_topic(vessel.vessel_id), online.model_dump_json(), qos=1, retain=True
+                    status_topic(vessel.vessel_id),
+                    status_payload(vessel, ConnectionState.ONLINE),
+                    qos=1,
+                    retain=True,
                 )
                 logger.info("%s connected", vessel.vessel_id)
                 try:
-                    while True:
-                        now = loop.time()
-                        vessel.step(now - last_tick)
-                        last_tick = now
-                        message = vessel.telemetry(datetime.now(UTC))
-                        await client.publish(
-                            telemetry_topic(vessel.vessel_id), message.model_dump_json(), qos=0
+                    async with asyncio.TaskGroup() as group:
+                        group.create_task(
+                            publish_telemetry(client, vessel, ticker, settings.publish_interval_s)
                         )
-                        await asyncio.sleep(settings.publish_interval_s)
+                        group.create_task(listen_for_commands(client, vessel))
                 except asyncio.CancelledError:
                     # A clean disconnect does not trigger the Last Will, so announce it ourselves.
-                    final = offline.model_copy(update={"timestamp": datetime.now(UTC)})
                     await client.publish(
-                        status_topic(vessel.vessel_id), final.model_dump_json(), qos=1, retain=True
+                        status_topic(vessel.vessel_id),
+                        status_payload(vessel, ConnectionState.OFFLINE),
+                        qos=1,
+                        retain=True,
                     )
                     raise
-        except aiomqtt.MqttError as error:
-            logger.warning("%s: MQTT error (%s), retrying", vessel.vessel_id, error)
+        except* aiomqtt.MqttError as errors:
+            logger.warning("%s: MQTT error (%s), retrying", vessel.vessel_id, errors.exceptions[0])
             await asyncio.sleep(RECONNECT_DELAY_S)
 
 

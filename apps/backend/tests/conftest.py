@@ -12,11 +12,13 @@ from testcontainers.community.postgres import PostgresContainer
 from testcontainers.core.container import DockerContainer
 
 from fleetpulse_backend.api.app import create_app
+from fleetpulse_backend.api.relay import MessagingUnavailableError
 from fleetpulse_backend.auth.passwords import hash_password
 from fleetpulse_backend.config import Settings
 from fleetpulse_backend.db.migrate import upgrade
 from fleetpulse_backend.db.models import Role, User
 from fleetpulse_contracts.alerts import AlertEvent
+from fleetpulse_contracts.commands import CommandMessage
 
 Sessionmaker = async_sessionmaker[AsyncSession]
 
@@ -98,13 +100,20 @@ async def _empty_tables(sessionmaker: Sessionmaker) -> None:
 
 
 class RecordingPublisher:
-    """Collects alert events instead of sending them to MQTT."""
+    """Collects what the API would send over MQTT."""
 
     def __init__(self) -> None:
         self.events: list[AlertEvent] = []
+        self.commands: list[tuple[str, CommandMessage]] = []
+        self.unavailable = False
 
-    async def publish(self, event: AlertEvent) -> None:
+    async def publish_alert(self, event: AlertEvent) -> None:
         self.events.append(event)
+
+    async def send_command(self, vessel_id: str, command: CommandMessage) -> None:
+        if self.unavailable:
+            raise MessagingUnavailableError("broker down")
+        self.commands.append((vessel_id, command))
 
 
 @contextlib.contextmanager
@@ -114,7 +123,7 @@ def make_db_client(
     app = create_app(
         Settings(database_url=database_url, **settings),
         relay=False,
-        alert_events=publisher or RecordingPublisher(),
+        publisher=publisher or RecordingPublisher(),
     )
     with TestClient(app) as client:
         db = DbClient(client)
