@@ -192,6 +192,48 @@ export interface paths {
         patch: operations["update_vessel_api_v1_vessels__vessel_id__patch"];
         trace?: never;
     };
+    "/api/v1/vessels/{vessel_id}/telemetry/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest Telemetry
+         * @description The most recent reading from the last 24 hours.
+         */
+        get: operations["latest_telemetry_api_v1_vessels__vessel_id__telemetry_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vessels/{vessel_id}/telemetry/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Telemetry History
+         * @description One metric over time, in buckets sized to give at most a few hundred points.
+         *
+         *     Defaults to the last hour. Ranges are limited to 72 hours.
+         */
+        get: operations["telemetry_history_api_v1_vessels__vessel_id__telemetry_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -212,6 +254,25 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HistoryBucket */
+        HistoryBucket: {
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Avg */
+            avg: number;
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Email */
@@ -219,6 +280,29 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * Metric
+         * @description Metrics with meaningful averages. Course is left out on purpose: it is an angle,
+         *     and the average of 359° and 1° is 180°, which is wrong.
+         * @enum {string}
+         */
+        Metric: "speed_knots" | "battery_percent" | "battery_voltage" | "motor_temperature_c" | "ambient_temperature_c";
+        /** MetricSummary */
+        MetricSummary: {
+            /** Avg */
+            avg: number;
+            /** Min */
+            min: number;
+            /** Max */
+            max: number;
+            /** Count */
+            count: number;
+        };
+        /**
+         * NavigationStatus
+         * @enum {string}
+         */
+        NavigationStatus: "docked" | "underway" | "anchored";
         /** Problem */
         Problem: {
             /**
@@ -242,6 +326,63 @@ export interface components {
          * @enum {string}
          */
         Role: "admin" | "operator" | "viewer";
+        /** TelemetryHistory */
+        TelemetryHistory: {
+            metric: components["schemas"]["Metric"];
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Bucket Seconds */
+            bucket_seconds: number;
+            /** Buckets */
+            buckets: components["schemas"]["HistoryBucket"][];
+            summary: components["schemas"]["MetricSummary"] | null;
+        };
+        /**
+         * TelemetryMessage
+         * @description Payload of `fleetpulse/v1/vessels/{vessel_id}/telemetry`.
+         */
+        TelemetryMessage: {
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Vessel Id */
+            vessel_id: string;
+            /** Device Id */
+            device_id: string;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Speed Knots */
+            speed_knots: number;
+            /** Course Degrees */
+            course_degrees: number;
+            /** Battery Percent */
+            battery_percent: number;
+            /** Battery Voltage */
+            battery_voltage: number;
+            /** Motor Temperature C */
+            motor_temperature_c: number;
+            /** Ambient Temperature C */
+            ambient_temperature_c: number;
+            status: components["schemas"]["NavigationStatus"];
+        };
         /** UserOut */
         UserOut: {
             /**
@@ -254,6 +395,19 @@ export interface components {
             /** Display Name */
             display_name: string;
             role: components["schemas"]["Role"];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         /** VesselCreate */
         VesselCreate: {
@@ -790,6 +944,133 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    latest_telemetry_api_v1_vessels__vessel_id__telemetry_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vessel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetryMessage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    telemetry_history_api_v1_vessels__vessel_id__telemetry_history_get: {
+        parameters: {
+            query: {
+                metric: components["schemas"]["Metric"];
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path: {
+                vessel_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetryHistory"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
