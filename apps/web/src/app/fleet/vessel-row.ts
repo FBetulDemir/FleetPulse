@@ -14,9 +14,19 @@ export const LOW_BATTERY_PERCENT = 20;
  */
 export type Freshness = 'live' | 'stale' | 'offline' | 'waiting';
 
+/** Shown with an icon and text, never color alone. */
+export const FRESHNESS_LABELS: Record<Freshness, { label: string; icon: string }> = {
+  live: { label: 'Live', icon: 'sensors' },
+  stale: { label: 'Stale', icon: 'history' },
+  offline: { label: 'Offline', icon: 'sensors_off' },
+  waiting: { label: 'Waiting', icon: 'hourglass_empty' },
+};
+
 export interface VesselRow {
   /** The vessel's MQTT identifier, e.g. "vessel-001". */
   vesselId: string;
+  /** The registry id, used in links; null for vessels that are not registered. */
+  id: string | null;
   /** From the vessel registry; falls back to the identifier for unregistered vessels. */
   name: string;
   vesselType: VesselType | null;
@@ -60,6 +70,7 @@ export function toRow(
   const ageMs = telemetry ? Math.max(0, nowMs - Date.parse(telemetry.timestamp)) : null;
   return {
     vesselId,
+    id: vessel?.id ?? null,
     name: vessel?.name ?? vesselId,
     vesselType: vessel?.vessel_type ?? null,
     freshness: freshness(live?.connection ?? null, ageMs),

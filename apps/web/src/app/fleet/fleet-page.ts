@@ -7,20 +7,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
+import { RouterLink } from '@angular/router';
 import { interval, map } from 'rxjs';
 
 import { VesselPage } from '../api/models';
 import { FleetLiveStore } from '../live/fleet-live-store';
-import { Freshness, VesselRow, buildRows, formatAge } from './vessel-row';
+import { FRESHNESS_LABELS, Freshness, VesselRow, buildRows, formatAge } from './vessel-row';
 
 export const VESSELS_URL = '/api/v1/vessels?is_active=true&limit=100';
-
-const FRESHNESS_LABELS: Record<Freshness, { label: string; icon: string }> = {
-  live: { label: 'Live', icon: 'sensors' },
-  stale: { label: 'Stale', icon: 'history' },
-  offline: { label: 'Offline', icon: 'sensors_off' },
-  waiting: { label: 'Waiting', icon: 'hourglass_empty' },
-};
 
 @Component({
   selector: 'app-fleet-page',
@@ -31,6 +25,7 @@ const FRESHNESS_LABELS: Record<Freshness, { label: string; icon: string }> = {
     MatProgressBarModule,
     MatProgressSpinnerModule,
     MatTableModule,
+    RouterLink,
   ],
   templateUrl: './fleet-page.html',
   styleUrl: './fleet-page.scss',

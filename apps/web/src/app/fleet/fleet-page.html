@@ -24,7 +24,11 @@
       <ng-container matColumnDef="vessel">
         <th mat-header-cell *matHeaderCellDef scope="col">Vessel</th>
         <th mat-cell *matCellDef="let row" scope="row" class="vessel-id">
-          <span class="vessel-name">{{ row.name }}</span>
+          @if (row.id) {
+            <a class="vessel-name" [routerLink]="['/vessels', row.id]">{{ row.name }}</a>
+          } @else {
+            <span class="vessel-name">{{ row.name }}</span>
+          }
           @if (row.name !== row.vesselId) {
             <span class="vessel-identifier">{{ row.vesselId }}</span>
           }
