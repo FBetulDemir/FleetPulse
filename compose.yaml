@@ -1,0 +1,104 @@
+# Local development stack: `docker compose up --build`
+# Ports are bound to 127.0.0.1 so nothing is reachable from other machines.
+name: fleetpulse
+
+x-backend-env: &backend-env
+  FLEETPULSE_MQTT_HOST: mosquitto
+  FLEETPULSE_INFLUX_URL: http://influxdb:8181
+  FLEETPULSE_INFLUX_DATABASE: fleetpulse
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-W", "3"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  influxdb:
+    image: influxdb:3-core
+    # Authentication is disabled for local development only.
+    command:
+      - influxdb3
+      - serve
+      - --node-id=local
+      - --object-store=file
+      - --data-dir=/var/lib/influxdb3/data
+      - --without-auth
+    ports:
+      - "127.0.0.1:8181:8181"
+    volumes:
+      - influxdb-data:/var/lib/influxdb3
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8181/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-off job: create the database with a 7-day retention period if it does not exist.
+  influxdb-init:
+    image: influxdb:3-core
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        influxdb3 show databases --host http://influxdb:8181 | grep -qw fleetpulse
+        || influxdb3 create database fleetpulse --retention-period 7d --host http://influxdb:8181
+    restart: "no"
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["fleetpulse-worker"]
+    environment: *backend-env
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      influxdb-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    environment: *backend-env
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live')"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  simulator:
+    build:
+      context: .
+      dockerfile: apps/simulator/Dockerfile
+    environment:
+      FLEETPULSE_MQTT_HOST: mosquitto
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mosquitto-data:
+  influxdb-data:

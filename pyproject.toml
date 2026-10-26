@@ -1,0 +1,59 @@
+[project]
+name = "fleetpulse"
+version = "0.1.0"
+description = "FleetPulse workspace root: installs every Python package for local development."
+requires-python = ">=3.13"
+dependencies = [
+    "fleetpulse-contracts",
+    "fleetpulse-backend",
+    "fleetpulse-simulator",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "mypy>=1.15",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "ruff>=0.11",
+    "websockets>=15.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/contracts", "apps/backend", "apps/simulator"]
+
+[tool.uv.sources]
+fleetpulse-contracts = { workspace = true }
+fleetpulse-backend = { workspace = true }
+fleetpulse-simulator = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fleetpulse_contracts", "fleetpulse_backend", "fleetpulse_simulator"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["packages/contracts/src", "apps/backend/src", "apps/simulator/src", "scripts"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# influxdb3-python has no type annotations; only the worker calls it.
+module = ["fleetpulse_backend.worker.*"]
+disallow_untyped_calls = false
+warn_return_any = false
+
+[tool.pytest.ini_options]
+testpaths = ["packages/contracts/tests", "apps/backend/tests", "apps/simulator/tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--import-mode=importlib"

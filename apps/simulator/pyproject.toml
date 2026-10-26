@@ -1,0 +1,20 @@
+[project]
+name = "fleetpulse-simulator"
+version = "0.1.0"
+description = "Simulated vessels that publish FleetPulse telemetry over MQTT."
+requires-python = ">=3.13"
+dependencies = [
+    "aiomqtt>=2.3",
+    "fleetpulse-contracts",
+    "pydantic-settings>=2.7",
+]
+
+[project.scripts]
+fleetpulse-simulator = "fleetpulse_simulator.main:run"
+
+[tool.uv.sources]
+fleetpulse-contracts = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
