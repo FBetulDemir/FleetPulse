@@ -48,8 +48,12 @@ files = ["packages/contracts/src", "apps/backend/src", "apps/simulator/src", "sc
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-# influxdb3-python has no type annotations; only the worker calls it.
-module = ["fleetpulse_backend.worker.*"]
+# influxdb3-python has no type annotations; only these modules call it.
+module = [
+    "fleetpulse_backend.worker.*",
+    "fleetpulse_backend.telemetry",
+    "fleetpulse_backend.api.app",
+]
 disallow_untyped_calls = false
 warn_return_any = false
 

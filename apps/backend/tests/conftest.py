@@ -1,4 +1,6 @@
 import contextlib
+import time
+import urllib.request
 from collections.abc import Awaitable, Callable, Iterator
 from typing import Any
 
@@ -7,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from testcontainers.community.postgres import PostgresContainer
+from testcontainers.core.container import DockerContainer
 
 from fleetpulse_backend.api.app import create_app
 from fleetpulse_backend.auth.passwords import hash_password
@@ -19,6 +22,25 @@ Sessionmaker = async_sessionmaker[AsyncSession]
 PASSWORD = "correct horse battery staple"
 # Hashing is deliberately slow; hash once for all test users.
 PASSWORD_HASH = hash_password(PASSWORD)
+
+
+@pytest.fixture(scope="session")
+def influx_url() -> Iterator[str]:
+    """A real InfluxDB 3 Core in a throwaway container (in-memory, no auth)."""
+    container = DockerContainer("influxdb:3-core").with_exposed_ports(8181)
+    container.with_command("influxdb3 serve --node-id test --object-store memory --without-auth")
+    with container:
+        url = f"http://{container.get_container_host_ip()}:{container.get_exposed_port(8181)}"
+        deadline = time.monotonic() + 60
+        while True:
+            try:
+                urllib.request.urlopen(f"{url}/health", timeout=1).close()
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(0.5)
+        yield url
 
 
 @pytest.fixture(scope="session")
