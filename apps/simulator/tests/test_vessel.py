@@ -2,11 +2,13 @@ import random
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import ValidationError
 
-from fleetpulse_contracts import NavigationStatus
+from fleetpulse_contracts import NavigationStatus, TelemetryMessage
+from fleetpulse_contracts.commands import Scenario
 from fleetpulse_simulator.config import Settings
 from fleetpulse_simulator.geo import bearing_deg, distance_m, move
-from fleetpulse_simulator.main import build_fleet
+from fleetpulse_simulator.main import build_fleet, invalid_payload, parse_command
 from fleetpulse_simulator.routes import ROUTES
 from fleetpulse_simulator.vessel import CHARGE_UNTIL_PERCENT, Vessel
 
@@ -96,3 +98,72 @@ def test_fleet_ids_are_unique_and_formatted() -> None:
 
     assert [v.vessel_id for v in fleet] == [f"vessel-00{i}" for i in range(1, 6)]
     assert len({v.device_id for v in fleet}) == 5
+
+
+# Demo scenarios: each must cross its alert threshold within seconds, and end by itself.
+
+
+@pytest.mark.parametrize("docked", [False, True])
+def test_overheat_crosses_the_alert_threshold_quickly_and_ends(docked: bool) -> None:
+    # A docked vessel's motor runs cool; the fault must still overheat it.
+    vessel = make_vessel(battery_percent=90.0, dock_remaining_s=10_000 if docked else 0.0)
+    run(vessel, 120)
+    assert vessel.motor_temperature_c < 70
+    assert (vessel.status is NavigationStatus.DOCKED) == docked
+
+    vessel.start_scenario(Scenario.OVERHEAT)
+    run(vessel, 20)
+    assert vessel.motor_temperature_c > 70
+
+    run(vessel, 80)
+    assert vessel.scenario is None
+
+    # Once cooling works again the motor is back under the alert threshold quickly.
+    run(vessel, 30)
+    assert vessel.motor_temperature_c < 66
+
+
+def test_battery_drain_crosses_both_battery_thresholds_then_recovers() -> None:
+    vessel = make_vessel(battery_percent=90.0, dock_remaining_s=0.0)
+
+    vessel.start_scenario(Scenario.BATTERY_DRAIN)
+    run(vessel, 60)
+    assert vessel.battery_percent < 10
+
+    run(vessel, 60)
+    assert vessel.scenario is None
+    assert vessel.battery_percent >= 80  # the demo battery is "swapped"
+
+
+def test_go_offline_and_invalid_data_change_what_the_device_sends() -> None:
+    vessel = make_vessel()
+
+    vessel.start_scenario(Scenario.GO_OFFLINE)
+    assert vessel.silent and not vessel.sends_invalid_data
+
+    vessel.start_scenario(Scenario.INVALID_DATA)
+    assert vessel.sends_invalid_data and not vessel.silent
+    run(vessel, 21)
+    assert not vessel.sends_invalid_data
+
+
+def test_reset_ends_a_scenario_immediately() -> None:
+    vessel = make_vessel()
+    vessel.start_scenario(Scenario.GO_OFFLINE)
+
+    vessel.start_scenario(Scenario.RESET)
+
+    assert vessel.scenario is None
+
+
+def test_invalid_payload_fails_validation() -> None:
+    message = make_vessel().telemetry(NOW)
+
+    with pytest.raises(ValidationError):
+        TelemetryMessage.model_validate_json(invalid_payload(message))
+
+
+def test_parse_command() -> None:
+    assert parse_command(b'{"scenario": "overheat"}') is Scenario.OVERHEAT
+    assert parse_command(b'{"scenario": "explode"}') is None
+    assert parse_command(b"not json") is None
