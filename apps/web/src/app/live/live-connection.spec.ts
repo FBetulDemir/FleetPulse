@@ -3,9 +3,11 @@ import { Subscription } from 'rxjs';
 
 import { FakeWebSocket } from '../../testing/fake-web-socket';
 import { telemetryEvent } from '../../testing/telemetry';
+import { AuthService } from '../auth/auth.service';
 import {
   LIVE_SOCKET_URL,
   LiveConnection,
+  NOT_AUTHENTICATED,
   WEB_SOCKET_CTOR,
   reconnectDelayMs,
 } from './live-connection';
@@ -16,13 +18,18 @@ describe('LiveConnection', () => {
   let received: LiveEvent[];
   let subscription: Subscription | undefined;
 
+  const auth = { refresh: vi.fn(), sessionExpired: vi.fn() };
+
   beforeEach(() => {
     FakeWebSocket.instances = [];
     received = [];
+    auth.refresh.mockReset();
+    auth.sessionExpired.mockReset();
     TestBed.configureTestingModule({
       providers: [
         { provide: LIVE_SOCKET_URL, useValue: 'ws://test/ws' },
         { provide: WEB_SOCKET_CTOR, useValue: FakeWebSocket },
+        { provide: AuthService, useValue: auth },
       ],
     });
     connection = TestBed.inject(LiveConnection);
@@ -98,6 +105,30 @@ describe('LiveConnection', () => {
     expect(reconnected.sent).toEqual([
       { type: 'subscribe', channel: 'vessel', vessel_id: 'vessel-001' },
     ]);
+  });
+
+  it('refreshes the session before reconnecting when the token expired', async () => {
+    auth.refresh.mockResolvedValue(true);
+    watchVessel('vessel-001');
+    FakeWebSocket.latest().serverOpens();
+
+    FakeWebSocket.latest().serverCloses(NOT_AUTHENTICATED);
+    await Promise.resolve();
+
+    expect(auth.refresh).toHaveBeenCalledOnce();
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it('stops reconnecting when the session cannot be refreshed', async () => {
+    auth.refresh.mockResolvedValue(false);
+    watchVessel('vessel-001');
+    FakeWebSocket.latest().serverOpens();
+
+    FakeWebSocket.latest().serverCloses(NOT_AUTHENTICATED);
+    await Promise.resolve();
+
+    expect(auth.sessionExpired).toHaveBeenCalledOnce();
+    expect(FakeWebSocket.instances).toHaveLength(1);
   });
 });
 

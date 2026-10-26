@@ -39,8 +39,9 @@ export class FakeWebSocket {
     this.onmessage?.(new MessageEvent('message', { data: JSON.stringify(message) }));
   }
 
-  serverCloses(): void {
+  /** 1012 = "service restart"; 4401 = the API's "not authenticated". */
+  serverCloses(code = 1012): void {
     this.readyState = 3;
-    this.onclose?.(new CloseEvent('close', { wasClean: true, code: 1012 }));
+    this.onclose?.(new CloseEvent('close', { wasClean: true, code }));
   }
 }
