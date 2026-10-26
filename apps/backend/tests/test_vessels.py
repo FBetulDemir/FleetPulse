@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from fleetpulse_backend.db.models import Vessel, VesselType
+from fleetpulse_backend.db.models import Role, Vessel, VesselType
 from fleetpulse_backend.db.seed import DEMO_VESSELS, seed
 
 from .conftest import DbClient, Sessionmaker
@@ -121,8 +121,8 @@ def test_malformed_vessel_id_is_422(db_client: DbClient) -> None:
 
 
 def test_seed_is_idempotent(db_client: DbClient) -> None:
-    db_client.run(seed)
-    db_client.run(seed)
+    db_client.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
+    db_client.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
 
     response = db_client.client.get(URL)
     assert response.json()["total"] == len(DEMO_VESSELS)
@@ -130,3 +130,99 @@ def test_seed_is_idempotent(db_client: DbClient) -> None:
 
 def test_ready_checks_the_database(db_client: DbClient) -> None:
     assert db_client.client.get("/api/v1/health/ready").json() == {"status": "ok"}
+
+
+# Creating and editing (admin only)
+
+NEW_VESSEL = {
+    "identifier": "vessel-042",
+    "name": "Nya Varvet",
+    "vessel_type": "workboat",
+    "length_m": 18.5,
+}
+
+
+def test_creating_a_vessel_requires_login(db_client: DbClient) -> None:
+    assert db_client.client.post(URL, json=NEW_VESSEL).status_code == 401
+
+
+@pytest.mark.parametrize("role", [Role.VIEWER, Role.OPERATOR])
+def test_only_admins_can_create_vessels(db_client: DbClient, role: Role) -> None:
+    db_client.login_as(role)
+
+    response = db_client.client.post(URL, json=NEW_VESSEL)
+
+    assert response.status_code == 403
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+def test_admin_creates_a_vessel(db_client: DbClient) -> None:
+    db_client.login_as(Role.ADMIN)
+
+    response = db_client.client.post(URL, json={**NEW_VESSEL, "name": "  Nya Varvet  "})
+
+    assert response.status_code == 201
+    vessel = response.json()
+    assert vessel["name"] == "Nya Varvet"
+    assert vessel["is_active"] is True
+    assert response.headers["location"] == f"{URL}/{vessel['id']}"
+    assert db_client.client.get(response.headers["location"]).json() == vessel
+
+
+def test_duplicate_identifier_is_409(db_client: DbClient) -> None:
+    db_client.login_as(Role.ADMIN)
+    db_client.client.post(URL, json=NEW_VESSEL)
+
+    response = db_client.client.post(URL, json={**NEW_VESSEL, "name": "Another"})
+
+    assert response.status_code == 409
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"identifier": "Bad Id"}, {"length_m": 0}, {"name": " "}, {"vessel_type": "submarine"}],
+)
+def test_create_validates_input(db_client: DbClient, change: dict[str, Any]) -> None:
+    db_client.login_as(Role.ADMIN)
+
+    assert db_client.client.post(URL, json={**NEW_VESSEL, **change}).status_code == 422
+
+
+def test_admin_updates_and_deactivates_a_vessel(db_client: DbClient) -> None:
+    db_client.login_as(Role.ADMIN)
+    vessel_id = db_client.client.post(URL, json=NEW_VESSEL).json()["id"]
+
+    response = db_client.client.patch(
+        f"{URL}/{vessel_id}", json={"name": "Renamed", "is_active": False}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Renamed"
+    assert response.json()["is_active"] is False
+    assert response.json()["length_m"] == NEW_VESSEL["length_m"]  # untouched fields stay
+
+
+@pytest.mark.parametrize("body", [{"name": None}, {"identifier": "vessel-999"}])
+def test_update_rejects_nulls_and_identifier_changes(
+    db_client: DbClient, body: dict[str, Any]
+) -> None:
+    db_client.login_as(Role.ADMIN)
+    vessel_id = db_client.client.post(URL, json=NEW_VESSEL).json()["id"]
+
+    assert db_client.client.patch(f"{URL}/{vessel_id}", json=body).status_code == 422
+
+
+def test_updating_an_unknown_vessel_is_404(db_client: DbClient) -> None:
+    db_client.login_as(Role.ADMIN)
+
+    response = db_client.client.patch(f"{URL}/{uuid.uuid4()}", json={"name": "Ghost"})
+
+    assert response.status_code == 404
+
+
+def test_viewer_cannot_update_vessels(db_client: DbClient) -> None:
+    db_client.login_as(Role.VIEWER)
+
+    response = db_client.client.patch(f"{URL}/{uuid.uuid4()}", json={"name": "Nope"})
+
+    assert response.status_code == 403

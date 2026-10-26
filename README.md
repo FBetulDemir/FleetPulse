@@ -29,6 +29,7 @@ uv run python scripts/smoke_test.py
 ```
 
 - Web app: http://localhost:8080
+- Demo accounts: `demo-admin@example.com`, `demo-operator@example.com` and `demo-viewer@example.com`, password `fleetpulse-demo`
 - API docs: http://localhost:8000/api/docs
 - Live events: connect to `ws://localhost:8080/ws` and send `{"type": "subscribe", "channel": "fleet"}`
 

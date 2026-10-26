@@ -7,7 +7,7 @@ import anyio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from fleetpulse_backend.api import health, vessels
+from fleetpulse_backend.api import auth, health, vessels
 from fleetpulse_backend.api.hub import LiveHub, Subscriber
 from fleetpulse_backend.api.problems import install_problem_handlers
 from fleetpulse_backend.api.relay import relay_mqtt
@@ -65,7 +65,9 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
         openapi_url="/api/openapi.json",
         lifespan=lifespan,
     )
+    app.state.settings = settings
     install_problem_handlers(app)
+    app.include_router(auth.router)
     app.include_router(health.router)
     app.include_router(vessels.router)
 

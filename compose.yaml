@@ -7,6 +7,7 @@ x-backend-env: &backend-env
   FLEETPULSE_MQTT_HOST: mosquitto
   FLEETPULSE_INFLUX_URL: http://influxdb:8181
   FLEETPULSE_INFLUX_DATABASE: fleetpulse
+  FLEETPULSE_DEMO_MODE: "true"
 
 services:
   mosquitto:

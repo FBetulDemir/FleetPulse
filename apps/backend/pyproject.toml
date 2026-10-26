@@ -11,7 +11,9 @@ dependencies = [
     "fastapi>=0.115",
     "fleetpulse-contracts",
     "influxdb3-python>=0.12",
+    "pwdlib[argon2]>=0.3",
     "pydantic-settings>=2.7",
+    "pyjwt>=2.15",
     "sqlalchemy[asyncio]>=2.1",
     "uvicorn[standard]>=0.34",
 ]
