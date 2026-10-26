@@ -151,3 +151,13 @@ async def logout(request: Request, session: SessionDep, settings: SettingsDep) -
 @router.get("/me", responses=problem_responses(401))
 async def me(user: CurrentUser) -> UserOut:
     return UserOut.model_validate(user)
+
+
+class AuthOptions(BaseModel):
+    demo_login: bool
+
+
+@router.get("/options")
+async def options(settings: SettingsDep) -> AuthOptions:
+    """Public: what the login page should offer."""
+    return AuthOptions(demo_login=settings.demo_mode)

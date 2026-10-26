@@ -22,15 +22,22 @@ def add_vessels(db: DbClient, *vessels: dict[str, Any]) -> None:
 
 
 @pytest.fixture
-def fleet(db_client: DbClient) -> DbClient:
+def viewer(db_client: DbClient) -> DbClient:
+    """Reading vessels requires login; any role may read."""
+    db_client.login_as(Role.VIEWER)
+    return db_client
+
+
+@pytest.fixture
+def fleet(viewer: DbClient) -> DbClient:
     add_vessels(
-        db_client,
+        viewer,
         {"identifier": "vessel-001", "name": "Charlie"},
         {"identifier": "vessel-002", "name": "alpha"},
         {"identifier": "vessel-003", "name": "Bravo", "is_active": False},
         {"identifier": "vessel-004", "name": "100% Delta"},
     )
-    return db_client
+    return viewer
 
 
 def names(response: Any) -> list[str]:
@@ -87,9 +94,9 @@ def test_paginates_with_total(fleet: DbClient) -> None:
     "params", [{"limit": 0}, {"limit": 101}, {"offset": -1}, {"sort": "length_m"}]
 )
 def test_rejects_invalid_query_with_problem_details(
-    db_client: DbClient, params: dict[str, Any]
+    viewer: DbClient, params: dict[str, Any]
 ) -> None:
-    response = db_client.client.get(URL, params=params)
+    response = viewer.client.get(URL, params=params)
 
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
@@ -108,24 +115,28 @@ def test_gets_one_vessel(fleet: DbClient) -> None:
     assert response.json()["identifier"] == "vessel-002"
 
 
-def test_unknown_vessel_is_404_problem(db_client: DbClient) -> None:
-    response = db_client.client.get(f"{URL}/{uuid.uuid4()}")
+def test_unknown_vessel_is_404_problem(viewer: DbClient) -> None:
+    response = viewer.client.get(f"{URL}/{uuid.uuid4()}")
 
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["detail"] == "Vessel not found"
 
 
-def test_malformed_vessel_id_is_422(db_client: DbClient) -> None:
-    assert db_client.client.get(f"{URL}/not-a-uuid").status_code == 422
+def test_malformed_vessel_id_is_422(viewer: DbClient) -> None:
+    assert viewer.client.get(f"{URL}/not-a-uuid").status_code == 422
 
 
-def test_seed_is_idempotent(db_client: DbClient) -> None:
-    db_client.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
-    db_client.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
+def test_seed_is_idempotent(viewer: DbClient) -> None:
+    viewer.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
+    viewer.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
 
-    response = db_client.client.get(URL)
+    response = viewer.client.get(URL)
     assert response.json()["total"] == len(DEMO_VESSELS)
+
+
+def test_reading_vessels_requires_login(db_client: DbClient) -> None:
+    assert db_client.client.get(URL).status_code == 401
 
 
 def test_ready_checks_the_database(db_client: DbClient) -> None:
