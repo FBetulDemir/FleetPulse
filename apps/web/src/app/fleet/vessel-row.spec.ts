@@ -1,32 +1,51 @@
 import { telemetry } from '../../testing/telemetry';
+import { registeredVessel } from '../../testing/vessels';
 import { VesselLiveState } from '../live/fleet-live-store';
-import { STALE_AFTER_MS, formatAge, toRow } from './vessel-row';
+import { STALE_AFTER_MS, buildRows, formatAge, toRow } from './vessel-row';
 
 const READING_AT = Date.parse('2026-10-26T10:00:00Z');
 
-function vessel(overrides: Partial<VesselLiveState> = {}): VesselLiveState {
+function live(overrides: Partial<VesselLiveState> = {}): VesselLiveState {
   return { vesselId: 'vessel-001', connection: 'online', telemetry: telemetry(), ...overrides };
 }
 
 describe('toRow', () => {
-  it('is live while telemetry is recent', () => {
-    const row = toRow(vessel(), READING_AT + 2000);
+  const registered = registeredVessel();
 
-    expect(row.freshness).toBe('live');
-    expect(row.ageSeconds).toBe(2);
-    expect(row.speedKnots).toBe(8.2);
+  it('combines registry details with live readings', () => {
+    const row = toRow('vessel-001', registered, live(), READING_AT + 2000);
+
+    expect(row).toMatchObject({
+      vesselId: 'vessel-001',
+      name: 'Älvskutt',
+      vesselType: 'ferry',
+      freshness: 'live',
+      ageSeconds: 2,
+      speedKnots: 8.2,
+    });
+  });
+
+  it('falls back to the identifier for unregistered vessels', () => {
+    const row = toRow('vessel-009', undefined, live({ vesselId: 'vessel-009' }), READING_AT);
+
+    expect(row.name).toBe('vessel-009');
+    expect(row.vesselType).toBeNull();
   });
 
   it('is stale when a connected device stops reporting', () => {
-    expect(toRow(vessel(), READING_AT + STALE_AFTER_MS + 1).freshness).toBe('stale');
+    const row = toRow('vessel-001', registered, live(), READING_AT + STALE_AFTER_MS + 1);
+
+    expect(row.freshness).toBe('stale');
   });
 
   it('is offline when the broker reports a disconnect, even with recent telemetry', () => {
-    expect(toRow(vessel({ connection: 'offline' }), READING_AT).freshness).toBe('offline');
+    const row = toRow('vessel-001', registered, live({ connection: 'offline' }), READING_AT);
+
+    expect(row.freshness).toBe('offline');
   });
 
-  it('is waiting before the first telemetry arrives', () => {
-    const row = toRow(vessel({ telemetry: null }), READING_AT);
+  it('is waiting for a registered vessel that has not reported yet', () => {
+    const row = toRow('vessel-001', registered, undefined, READING_AT);
 
     expect(row.freshness).toBe('waiting');
     expect(row.batteryPercent).toBeNull();
@@ -34,12 +53,35 @@ describe('toRow', () => {
   });
 
   it('flags low battery below 20 percent', () => {
-    expect(
-      toRow(vessel({ telemetry: telemetry({ battery_percent: 19.9 }) }), READING_AT).lowBattery,
-    ).toBe(true);
-    expect(
-      toRow(vessel({ telemetry: telemetry({ battery_percent: 20 }) }), READING_AT).lowBattery,
-    ).toBe(false);
+    const lowBattery = (percent: number) =>
+      toRow(
+        'vessel-001',
+        registered,
+        live({ telemetry: telemetry({ battery_percent: percent }) }),
+        READING_AT,
+      ).lowBattery;
+
+    expect(lowBattery(19.9)).toBe(true);
+    expect(lowBattery(20)).toBe(false);
+  });
+});
+
+describe('buildRows', () => {
+  it('includes registered and reporting vessels, sorted by name', () => {
+    const rows = buildRows(
+      [
+        registeredVessel({ identifier: 'vessel-002', name: 'Bravo' }),
+        registeredVessel({ identifier: 'vessel-001', name: 'alpha' }),
+      ],
+      [live({ vesselId: 'vessel-001' }), live({ vesselId: 'vessel-003' })],
+      READING_AT,
+    );
+
+    expect(rows.map((row) => [row.name, row.freshness])).toEqual([
+      ['alpha', 'live'],
+      ['Bravo', 'waiting'],
+      ['vessel-003', 'live'],
+    ]);
   });
 });
 

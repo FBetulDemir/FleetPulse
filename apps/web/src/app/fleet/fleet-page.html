@@ -3,6 +3,14 @@
   <p class="subtitle">Live status of every vessel, updated as telemetry arrives.</p>
 </header>
 
+@if (registry.error()) {
+  <div class="banner" role="alert">
+    <mat-icon>error</mat-icon>
+    <p>Vessel details could not be loaded. Showing live data only.</p>
+    <button mat-button type="button" (click)="registry.reload()">Retry</button>
+  </div>
+}
+
 @if (rows().length === 0) {
   <div class="empty" role="status">
     <mat-spinner diameter="32" aria-hidden="true" />
@@ -15,7 +23,17 @@
 
       <ng-container matColumnDef="vessel">
         <th mat-header-cell *matHeaderCellDef scope="col">Vessel</th>
-        <th mat-cell *matCellDef="let row" scope="row" class="vessel-id">{{ row.vesselId }}</th>
+        <th mat-cell *matCellDef="let row" scope="row" class="vessel-id">
+          <span class="vessel-name">{{ row.name }}</span>
+          @if (row.name !== row.vesselId) {
+            <span class="vessel-identifier">{{ row.vesselId }}</span>
+          }
+        </th>
+      </ng-container>
+
+      <ng-container matColumnDef="type">
+        <th mat-header-cell *matHeaderCellDef scope="col">Type</th>
+        <td mat-cell *matCellDef="let row" class="capitalize">{{ row.vesselType ?? '—' }}</td>
       </ng-container>
 
       <ng-container matColumnDef="freshness">

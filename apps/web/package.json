@@ -10,7 +10,8 @@
     "lint": "ng lint",
     "test:ci": "ng test --watch=false",
     "format": "prettier --write src",
-    "format:check": "prettier --check src"
+    "format:check": "prettier --check src",
+    "api:generate": "npx --yes openapi-typescript@7.13.0 openapi.json --output src/app/api/schema.d.ts"
   },
   "private": true,
   "packageManager": "npm@11.5.2",

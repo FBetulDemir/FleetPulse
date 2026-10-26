@@ -49,6 +49,32 @@ tr:last-child th.vessel-id {
   border-bottom: none;
 }
 
+.vessel-name {
+  display: block;
+}
+
+.vessel-identifier {
+  display: block;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+
+  p {
+    flex: 1;
+    margin: 0;
+  }
+}
+
 .numeric {
   text-align: end;
   font-variant-numeric: tabular-nums;
