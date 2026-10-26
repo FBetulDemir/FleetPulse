@@ -6,13 +6,23 @@ Safe to run repeatedly: existing rows are updated, not duplicated.
 import asyncio
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fleetpulse_backend.auth.passwords import hash_password
 from fleetpulse_backend.config import Settings
-from fleetpulse_backend.db.models import Role, User, Vessel, VesselType
+from fleetpulse_backend.db.models import (
+    AlertRule,
+    ComparisonOperator,
+    Role,
+    User,
+    Vessel,
+    VesselType,
+)
 from fleetpulse_backend.db.session import create_engine, create_sessionmaker
+from fleetpulse_backend.metrics import Metric
+from fleetpulse_contracts.alerts import AlertSeverity
 
 logger = logging.getLogger("fleetpulse.seed")
 
@@ -25,14 +35,34 @@ DEMO_VESSELS = [
         "length_m": length_m,
     }
     for number, name, vessel_type, length_m in [
-        (1, "Älvskutt", VesselType.FERRY, 24.0),
-        (2, "Styrsö Express", VesselType.FERRY, 32.5),
+        (1, "Ã„lvskutt", VesselType.FERRY, 24.0),
+        (2, "StyrsÃ¶ Express", VesselType.FERRY, 32.5),
         (3, "Vinga Pilot", VesselType.PILOT, 16.8),
-        (4, "Hönö Runner", VesselType.WORKBOAT, 19.2),
-        (5, "Donsö Surveyor", VesselType.RESEARCH, 14.5),
+        (4, "HÃ¶nÃ¶ Runner", VesselType.WORKBOAT, 19.2),
+        (5, "DonsÃ¶ Surveyor", VesselType.RESEARCH, 14.5),
     ]
 ]
 
+
+# Fleet-wide alert rules: (name, metric, operator, threshold, severity).
+DEFAULT_RULES = [
+    ("Low battery", Metric.BATTERY_PERCENT, ComparisonOperator.BELOW, 20.0, AlertSeverity.WARNING),
+    (
+        "Battery critical",
+        Metric.BATTERY_PERCENT,
+        ComparisonOperator.BELOW,
+        10.0,
+        AlertSeverity.CRITICAL,
+    ),
+    (
+        "High motor temperature",
+        Metric.MOTOR_TEMPERATURE_C,
+        ComparisonOperator.ABOVE,
+        70.0,
+        AlertSeverity.CRITICAL,
+    ),
+    ("Unusual speed", Metric.SPEED_KNOTS, ComparisonOperator.ABOVE, 12.0, AlertSeverity.WARNING),
+]
 
 DEMO_DISPLAY_NAMES = {
     Role.ADMIN: "Demo Admin",
@@ -80,7 +110,27 @@ async def seed(sessionmaker: async_sessionmaker[AsyncSession], demo_password: st
     async with sessionmaker() as session, session.begin():
         await session.execute(vessels)
         await session.execute(users)
-    logger.info("seeded %d vessels and %d demo users", len(DEMO_VESSELS), len(DEMO_DISPLAY_NAMES))
+        # Rules have no natural unique key; add the fleet-wide ones that are missing by name.
+        existing = set(
+            await session.scalars(select(AlertRule.name).where(AlertRule.vessel_id.is_(None)))
+        )
+        session.add_all(
+            AlertRule(
+                name=name,
+                metric=metric,
+                operator=operator,
+                threshold=threshold,
+                severity=severity,
+            )
+            for name, metric, operator, threshold, severity in DEFAULT_RULES
+            if name not in existing
+        )
+    logger.info(
+        "seeded %d vessels, %d demo users and %d alert rules",
+        len(DEMO_VESSELS),
+        len(DEMO_DISPLAY_NAMES),
+        len(DEFAULT_RULES),
+    )
 
 
 async def main() -> None:
