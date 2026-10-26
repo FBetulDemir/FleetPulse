@@ -1,0 +1,24 @@
+[project]
+name = "fleetpulse-backend"
+version = "0.1.0"
+description = "FleetPulse API (FastAPI) and ingestion worker."
+requires-python = ">=3.13"
+dependencies = [
+    "aiomqtt>=2.3",
+    "anyio>=4.6",
+    "fastapi>=0.115",
+    "fleetpulse-contracts",
+    "influxdb3-python>=0.12",
+    "pydantic-settings>=2.7",
+    "uvicorn[standard]>=0.34",
+]
+
+[project.scripts]
+fleetpulse-worker = "fleetpulse_backend.worker.main:run"
+
+[tool.uv.sources]
+fleetpulse-contracts = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
