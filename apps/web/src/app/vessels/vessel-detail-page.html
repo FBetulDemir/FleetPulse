@@ -1,0 +1,208 @@
+<a class="back" routerLink="/">
+  <mat-icon inline>arrow_back</mat-icon>
+  Fleet
+</a>
+
+@if (notFound()) {
+  <h1>Vessel not found</h1>
+  <p>This vessel does not exist or was removed. <a routerLink="/">Back to the fleet</a></p>
+} @else if (vessel.error()) {
+  <p class="message message--error" role="alert">
+    The vessel could not be loaded.
+    <button mat-button type="button" (click)="vessel.reload()">Retry</button>
+  </p>
+} @else if (vessel.hasValue()) {
+  @let details = vessel.value();
+  <header class="page-header">
+    <div>
+      <h1>{{ details.name }}</h1>
+      <p class="subtitle">
+        {{ details.identifier }} · <span class="capitalize">{{ details.vessel_type }}</span> ·
+        {{ details.length_m | number: '1.1-1' }} m
+      </p>
+    </div>
+    <span class="freshness" [class]="'freshness--' + status().freshness">
+      <mat-icon inline>{{ freshness().icon }}</mat-icon>
+      {{ freshness().label }}
+    </span>
+  </header>
+
+  <mat-tab-group (selectedIndexChange)="onTabChange($event)" animationDuration="0ms">
+    <mat-tab label="Live">
+      @let reading = latest();
+      @if (reading) {
+        <dl class="tiles">
+          <div class="tile">
+            <dt>Speed</dt>
+            <dd>{{ formatValue(reading.speed_knots, metricInfo.speed_knots) }}</dd>
+          </div>
+          <div class="tile">
+            <dt>Course</dt>
+            <dd>{{ reading.course_degrees | number: '1.0-0' }}°</dd>
+          </div>
+          <div class="tile" [class.tile--warning]="status().lowBattery">
+            <dt>Battery</dt>
+            <dd>
+              {{ formatValue(reading.battery_percent, metricInfo.battery_percent) }}
+              @if (status().lowBattery) {
+                <span class="tile-note">low</span>
+              }
+            </dd>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="reading.battery_percent"
+              aria-label="Battery level"
+            />
+          </div>
+          <div class="tile">
+            <dt>Battery voltage</dt>
+            <dd>{{ formatValue(reading.battery_voltage, metricInfo.battery_voltage) }}</dd>
+          </div>
+          <div class="tile">
+            <dt>Motor temperature</dt>
+            <dd>{{ formatValue(reading.motor_temperature_c, metricInfo.motor_temperature_c) }}</dd>
+          </div>
+          <div class="tile">
+            <dt>Ambient temperature</dt>
+            <dd>
+              {{ formatValue(reading.ambient_temperature_c, metricInfo.ambient_temperature_c) }}
+            </dd>
+          </div>
+          <div class="tile">
+            <dt>Status</dt>
+            <dd class="capitalize">{{ reading.status }}</dd>
+          </div>
+          <div class="tile">
+            <dt>Position</dt>
+            <dd>
+              {{ reading.latitude | number: '1.4-4' }}, {{ reading.longitude | number: '1.4-4' }}
+            </dd>
+          </div>
+          <div class="tile">
+            <dt>Last update</dt>
+            <dd>
+              <time [attr.datetime]="reading.timestamp">{{ formatAge(status().ageSeconds) }}</time>
+            </dd>
+          </div>
+        </dl>
+      } @else {
+        <p class="empty" role="status">No recent readings from this vessel.</p>
+      }
+
+      <h2 class="section-title">Last 5 minutes</h2>
+      @if (hasLiveTrend()) {
+        <div class="charts">
+          <figure class="chart-card">
+            <figcaption>Speed (kn)</figcaption>
+            <div echarts class="chart" [options]="speedTrend()"></div>
+          </figure>
+          <figure class="chart-card">
+            <figcaption>Motor temperature (°C)</figcaption>
+            <div echarts class="chart" [options]="motorTrend()"></div>
+          </figure>
+        </div>
+      } @else {
+        <p class="empty" role="status">Collecting live readings…</p>
+      }
+    </mat-tab>
+
+    <mat-tab label="History">
+      <ng-template matTabContent>
+        <div class="filters">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Metric</mat-label>
+            <mat-select [value]="metric()" (valueChange)="metric.set($event)">
+              @for (option of metrics; track option.key) {
+                <mat-option [value]="option.key">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-button-toggle-group
+            aria-label="Time range"
+            [value]="rangeHours()"
+            (valueChange)="rangeHours.set($event)"
+          >
+            @for (hours of ranges; track hours) {
+              <mat-button-toggle [value]="hours">{{ hours }} h</mat-button-toggle>
+            }
+          </mat-button-toggle-group>
+          <button mat-button type="button" (click)="refreshHistory()">
+            <mat-icon>refresh</mat-icon>
+            Refresh
+          </button>
+        </div>
+
+        @if (history.error()) {
+          <p class="message message--error" role="alert">
+            History could not be loaded.
+            <button mat-button type="button" (click)="history.reload()">Retry</button>
+          </p>
+        } @else if (history.hasValue()) {
+          @let result = history.value();
+          @if (result.summary; as summary) {
+            <dl class="tiles tiles--compact">
+              <div class="tile">
+                <dt>Average</dt>
+                <dd>{{ formatValue(summary.avg, historyInfo()) }}</dd>
+              </div>
+              <div class="tile">
+                <dt>Minimum</dt>
+                <dd>{{ formatValue(summary.min, historyInfo()) }}</dd>
+              </div>
+              <div class="tile">
+                <dt>Maximum</dt>
+                <dd>{{ formatValue(summary.max, historyInfo()) }}</dd>
+              </div>
+              <div class="tile">
+                <dt>Readings</dt>
+                <dd>{{ summary.count | number }}</dd>
+              </div>
+            </dl>
+            <figure class="chart-card">
+              <figcaption>
+                {{ historyInfo().label }} ({{ historyInfo().unit }}), average with min–max range,
+                {{ result.bucket_seconds }} s intervals
+              </figcaption>
+              <div echarts class="chart chart--tall" [options]="historyChart()"></div>
+            </figure>
+            <details class="data-table">
+              <summary>Show data as a table</summary>
+              <table>
+                <caption class="visually-hidden">
+                  {{
+                    historyInfo().label
+                  }}
+                  per interval
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">Average</th>
+                    <th scope="col">Minimum</th>
+                    <th scope="col">Maximum</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (bucket of result.buckets; track bucket.time) {
+                    <tr>
+                      <th scope="row">{{ formatTime(bucket.time) }}</th>
+                      <td>{{ formatValue(bucket.avg, historyInfo()) }}</td>
+                      <td>{{ formatValue(bucket.min, historyInfo()) }}</td>
+                      <td>{{ formatValue(bucket.max, historyInfo()) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </details>
+          } @else {
+            <p class="empty" role="status">No readings in this time range.</p>
+          }
+        } @else {
+          <mat-progress-bar mode="indeterminate" aria-label="Loading history" />
+        }
+      </ng-template>
+    </mat-tab>
+  </mat-tab-group>
+} @else {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading vessel" />
+}

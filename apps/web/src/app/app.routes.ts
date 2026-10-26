@@ -18,6 +18,11 @@ export const routes: Routes = [
         title: 'Fleet · FleetPulse',
         loadComponent: () => import('./fleet/fleet-page').then((m) => m.FleetPage),
       },
+      {
+        path: 'vessels/:id',
+        title: 'Vessel · FleetPulse',
+        loadComponent: () => import('./vessels/vessel-detail-page').then((m) => m.VesselDetailPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

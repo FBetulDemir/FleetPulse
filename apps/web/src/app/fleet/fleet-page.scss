@@ -53,6 +53,16 @@ tr:last-child th.vessel-id {
   display: block;
 }
 
+a.vessel-name {
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+}
+
 .vessel-identifier {
   display: block;
   font: var(--mat-sys-body-small);

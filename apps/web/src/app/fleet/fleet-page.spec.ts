@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { telemetry } from '../../testing/telemetry';
 import { registeredVessel, vesselPage } from '../../testing/vessels';
@@ -17,7 +18,7 @@ describe('FleetPage', () => {
     live.set([]);
     TestBed.configureTestingModule({
       imports: [FleetPage],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     });
     // The page provides its own store, so replace it at the component level.
     TestBed.overrideComponent(FleetPage, {
@@ -77,6 +78,9 @@ describe('FleetPage', () => {
     expect(rowFor('Hönö Runner')).toContain('low');
     expect(rowFor('Älvskutt')).toContain('vessel-001');
     expect(rowFor('Älvskutt')).toContain('8.2 kn');
+    // Registered vessels link to their detail page.
+    const link = page().querySelector<HTMLAnchorElement>('a.vessel-name');
+    expect(link?.getAttribute('href')).toMatch(/^\/vessels\//);
   });
 
   it('keeps showing live data and offers a retry when the registry fails', async () => {
