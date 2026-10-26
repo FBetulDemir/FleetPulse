@@ -4,6 +4,7 @@ PREFIX = "fleetpulse/v1"
 
 TELEMETRY_SUBSCRIPTION = f"{PREFIX}/vessels/+/telemetry"
 STATUS_SUBSCRIPTION = f"{PREFIX}/vessels/+/status"
+ALERTS_TOPIC = f"{PREFIX}/alerts"
 
 
 def telemetry_topic(vessel_id: str) -> str:
