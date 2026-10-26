@@ -23,21 +23,34 @@ Vessel simulator ──MQTT──▶ Mosquitto ──▶ Worker ──▶ Influx
 Requires [Docker](https://docs.docker.com/get-docker/) and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-docker compose up --build          # broker, InfluxDB, simulator, worker, API
+docker compose up --build          # everything: web app, API, worker, simulator, broker, InfluxDB
 uv sync                            # Python tooling for tests and scripts
 uv run python scripts/smoke_test.py
 ```
 
+- Web app: http://localhost:8080
 - API docs: http://localhost:8000/api/docs
-- Live events: connect to `ws://localhost:8000/ws` and send `{"type": "subscribe", "channel": "fleet"}`
+- Live events: connect to `ws://localhost:8080/ws` and send `{"type": "subscribe", "channel": "fleet"}`
 
 ## Development
+
+Backend (Python):
 
 ```sh
 uv run pytest         # tests
 uv run ruff check .   # lint
 uv run mypy           # type check
 uvx pre-commit install
+```
+
+Frontend (Angular), with hot reload against the backend running in Docker:
+
+```sh
+cd apps/web
+npm install
+npm start             # http://localhost:4200, proxies /api and /ws to localhost:8000
+npm test
+npm run lint
 ```
 
 ## License
