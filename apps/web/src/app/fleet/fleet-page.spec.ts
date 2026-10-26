@@ -17,11 +17,11 @@ describe('FleetPage', () => {
     live.set([]);
     TestBed.configureTestingModule({
       imports: [FleetPage],
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: FleetLiveStore, useValue: { vessels: live } },
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    // The page provides its own store, so replace it at the component level.
+    TestBed.overrideComponent(FleetPage, {
+      set: { providers: [{ provide: FleetLiveStore, useValue: { vessels: live } }] },
     });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(FleetPage);

@@ -1,8 +1,12 @@
 import { DOCUMENT, InjectionToken, Service, inject, signal } from '@angular/core';
-import { Observable, concat, retry, throwError, timer } from 'rxjs';
+import { EMPTY, Observable, concat, from, of, retry, switchMap, throwError, timer } from 'rxjs';
 import { webSocket } from 'rxjs/webSocket';
 
+import { AuthService } from '../auth/auth.service';
 import { ClientMessage, LiveChannel, LiveEvent, ServerMessage, isLiveEvent } from './live-events';
+
+/** Close code the API uses when the WebSocket is not authenticated (like HTTP 401). */
+export const NOT_AUTHENTICATED = 4401;
 
 export type SocketState = 'connecting' | 'open' | 'reconnecting';
 
@@ -30,18 +34,32 @@ export function reconnectDelayMs(attempt: number, random = Math.random): number 
  * One shared WebSocket to the API.
  *
  * Each call to `watch()` subscribes to a channel over that socket. When the connection
- * drops, it reconnects with backoff and subscribes again automatically.
+ * drops, it reconnects with backoff and subscribes again automatically. If the server
+ * closes it because the access token expired, it refreshes the session first.
  */
 @Service()
 export class LiveConnection {
+  private readonly auth = inject(AuthService);
   private readonly stateSignal = signal<SocketState>('connecting');
   readonly state = this.stateSignal.asReadonly();
+
+  private lastCloseCode: number | null = null;
 
   private readonly socket = webSocket<ServerMessage | ClientMessage>({
     url: inject(LIVE_SOCKET_URL),
     WebSocketCtor: inject(WEB_SOCKET_CTOR),
-    openObserver: { next: () => this.stateSignal.set('open') },
-    closeObserver: { next: () => this.stateSignal.set('reconnecting') },
+    openObserver: {
+      next: () => {
+        this.lastCloseCode = null;
+        this.stateSignal.set('open');
+      },
+    },
+    closeObserver: {
+      next: (event) => {
+        this.lastCloseCode = event.code;
+        this.stateSignal.set('reconnecting');
+      },
+    },
   });
 
   watch(channel: LiveChannel): Observable<LiveEvent> {
@@ -56,9 +74,18 @@ export class LiveConnection {
     // Turning it into an error lets one retry rule handle every kind of disconnect.
     const closed = throwError(() => new Error('live connection closed'));
     return concat(events, closed).pipe(
-      retry({
-        delay: (_error, attempt) => timer(reconnectDelayMs(attempt)),
-        resetOnSuccess: true,
+      retry({ delay: (_error, attempt) => this.beforeReconnect(attempt), resetOnSuccess: true }),
+    );
+  }
+
+  /** Emits when it is time to reconnect; completing instead stops reconnecting. */
+  private beforeReconnect(attempt: number): Observable<unknown> {
+    if (this.lastCloseCode !== NOT_AUTHENTICATED) return timer(reconnectDelayMs(attempt));
+    return from(this.auth.refresh()).pipe(
+      switchMap((refreshed) => {
+        if (refreshed) return of(true);
+        this.auth.sessionExpired();
+        return EMPTY;
       }),
     );
   }

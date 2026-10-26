@@ -1,0 +1,59 @@
+<section class="card" aria-labelledby="login-title">
+  <h1 id="login-title">Sign in</h1>
+  <p class="intro">Monitor a simulated fleet of electric vessels in real time.</p>
+
+  @if (sessionExpired) {
+    <p class="message message--info" role="status">Your session expired. Please sign in again.</p>
+  }
+  @if (error(); as message) {
+    <p class="message message--error" role="alert">{{ message }}</p>
+  }
+
+  <form (submit)="signIn($event)" novalidate>
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" autocomplete="username" [formField]="loginForm.email" />
+      @if (loginForm.email().errors()[0]; as fieldError) {
+        <mat-error>{{ fieldError.message }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input
+        matInput
+        type="password"
+        autocomplete="current-password"
+        [formField]="loginForm.password"
+      />
+      @if (loginForm.password().errors()[0]; as fieldError) {
+        <mat-error>{{ fieldError.message }}</mat-error>
+      }
+    </mat-form-field>
+
+    <button mat-flat-button type="submit" [disabled]="busy()">Sign in</button>
+  </form>
+
+  @if (options.hasValue() && options.value().demo_login) {
+    <section class="demo" aria-labelledby="demo-title">
+      <h2 id="demo-title">Try the demo</h2>
+      <p>No account needed. Each role can do different things.</p>
+      <div class="demo-roles">
+        @for (demo of demoRoles; track demo.role) {
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="busy()"
+            (click)="demoLogin(demo.role)"
+          >
+            <span class="demo-label">{{ demo.label }}</span>
+            <!-- Angular drops whitespace between elements; this keeps the accessible
+                 name readable: "Admin, Manages vessels". -->
+            <span class="visually-hidden">, </span>
+            <span class="demo-description">{{ demo.description }}</span>
+          </button>
+        }
+      </div>
+    </section>
+  }
+</section>

@@ -190,6 +190,28 @@
         }
       }
     },
+    "/api/v1/auth/options": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Options",
+        "description": "Public: what the login page should offer.",
+        "operationId": "options_api_v1_auth_options_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthOptions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/health/live": {
       "get": {
         "tags": [
@@ -349,6 +371,17 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Unprocessable Content",
             "content": {
@@ -462,6 +495,17 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VesselOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -580,6 +624,19 @@
   },
   "components": {
     "schemas": {
+      "AuthOptions": {
+        "properties": {
+          "demo_login": {
+            "type": "boolean",
+            "title": "Demo Login"
+          }
+        },
+        "type": "object",
+        "required": [
+          "demo_login"
+        ],
+        "title": "AuthOptions"
+      },
       "DemoLoginRequest": {
         "properties": {
           "role": {

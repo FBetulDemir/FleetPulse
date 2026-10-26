@@ -34,6 +34,9 @@ const FRESHNESS_LABELS: Record<Freshness, { label: string; icon: string }> = {
   ],
   templateUrl: './fleet-page.html',
   styleUrl: './fleet-page.scss',
+  // One store per page instance: leaving the page (e.g. signing out) ends the live
+  // subscription, and the shared WebSocket closes once nothing else uses it.
+  providers: [FleetLiveStore],
 })
 export class FleetPage {
   private readonly store = inject(FleetLiveStore);

@@ -2,18 +2,24 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
-from fleetpulse_backend.api.deps import require_role
+from fleetpulse_backend.api.deps import current_user, require_role
 from fleetpulse_backend.api.problems import problem_responses
 from fleetpulse_backend.db.models import Role, Vessel, VesselType
 from fleetpulse_backend.db.session import SessionDep
 from fleetpulse_contracts.telemetry import Identifier
 
-router = APIRouter(prefix="/api/v1/vessels", tags=["vessels"])
+# Every vessel endpoint requires a logged-in user; writes additionally require admin.
+router = APIRouter(
+    prefix="/api/v1/vessels",
+    tags=["vessels"],
+    dependencies=[Depends(current_user)],
+    responses=problem_responses(401),
+)
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 Length = Annotated[float, Field(gt=0, lt=10_000)]

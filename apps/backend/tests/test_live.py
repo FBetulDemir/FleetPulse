@@ -5,11 +5,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketTestSession
+from starlette.websockets import WebSocketDisconnect
 
-from fleetpulse_backend.api.app import create_app
 from fleetpulse_backend.api.hub import LiveHub
 from fleetpulse_backend.api.relay import to_event
-from fleetpulse_backend.config import Settings
+from fleetpulse_backend.db.models import Role
+
+from .conftest import DbClient
 
 
 def telemetry_event(vessel_id: str) -> dict[str, Any]:
@@ -17,9 +19,32 @@ def telemetry_event(vessel_id: str) -> dict[str, Any]:
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    with TestClient(create_app(Settings(), relay=False)) as test_client:
-        yield test_client
+def client(db_client: DbClient) -> Iterator[TestClient]:
+    """A client logged in as a viewer; the WebSocket requires login."""
+    db_client.login_as(Role.VIEWER)
+    yield db_client.client
+
+
+def close_code(client: TestClient, **headers: str) -> int:
+    with (
+        pytest.raises(WebSocketDisconnect) as closed,
+        client.websocket_connect("/ws", headers=headers) as ws,
+    ):
+        ws.receive_json()
+    return closed.value.code
+
+
+def test_websocket_requires_login(db_client: DbClient) -> None:
+    assert close_code(db_client.client) == 4401
+
+
+def test_websocket_rejects_other_origins(client: TestClient) -> None:
+    assert close_code(client, origin="https://evil.example") == 4403
+
+
+def test_websocket_accepts_same_origin(client: TestClient) -> None:
+    with client.websocket_connect("/ws", headers={"origin": "http://testserver"}) as ws:
+        subscribe(ws, channel="fleet")
 
 
 def publish(client: TestClient, vessel_id: str, event: dict[str, Any]) -> None:

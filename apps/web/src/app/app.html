@@ -9,10 +9,18 @@
   <span class="simulated" title="All vessels and readings on this site are simulated">
     Simulated data
   </span>
-  <span class="socket" [class]="'socket--' + socketState()" role="status" aria-live="polite">
-    <span class="socket-dot" aria-hidden="true"></span>
-    {{ socketLabel() }}
-  </span>
+  @if (user(); as user) {
+    <span class="socket" [class]="'socket--' + socketState()" role="status" aria-live="polite">
+      <span class="socket-dot" aria-hidden="true"></span>
+      <span class="socket-label">{{ socketLabel() }}</span>
+    </span>
+    <span class="user">
+      <span class="user-name">{{ user.display_name }}</span>
+      <span class="visually-hidden">, </span>
+      <span class="user-role">{{ user.role }}</span>
+    </span>
+    <button mat-button type="button" (click)="signOut()">Sign out</button>
+  }
 </mat-toolbar>
 
 <main id="main" class="content" tabindex="-1">

@@ -2,12 +2,16 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import anyio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fleetpulse_backend.api import auth, health, vessels
+from fleetpulse_backend.api.deps import ACCESS_COOKIE, authenticate
 from fleetpulse_backend.api.hub import LiveHub, Subscriber
 from fleetpulse_backend.api.problems import install_problem_handlers
 from fleetpulse_backend.api.relay import relay_mqtt
@@ -16,6 +20,34 @@ from fleetpulse_backend.config import Settings
 from fleetpulse_backend.db.session import create_engine, create_sessionmaker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+
+
+@dataclass(frozen=True)
+class Rejection:
+    code: int
+    reason: str
+
+
+# Application close codes (4000-4999), mirroring HTTP 401 and 403.
+NOT_AUTHENTICATED = Rejection(4401, "Not authenticated")
+FOREIGN_ORIGIN = Rejection(4403, "Origin not allowed")
+
+
+async def check_websocket(websocket: WebSocket) -> Rejection | None:
+    # Browsers attach cookies to WebSocket handshakes from any site, and CORS does not
+    # apply to WebSockets. Checking the Origin blocks cross-site WebSocket hijacking.
+    origin = websocket.headers.get("origin")
+    if origin is not None and urlsplit(origin).netloc != websocket.headers.get("host"):
+        return FOREIGN_ORIGIN
+
+    sessionmaker: async_sessionmaker[AsyncSession] = websocket.app.state.sessionmaker
+    async with sessionmaker() as session:
+        user = await authenticate(
+            websocket.cookies.get(ACCESS_COOKIE), session, websocket.app.state.settings
+        )
+    # Authenticated once at connect time. An open connection outlives the access token,
+    # which is acceptable for read-only live data; the next reconnect checks again.
+    return None if user is not None else NOT_AUTHENTICATED
 
 
 async def receive_subscriptions(websocket: WebSocket, hub: LiveHub, subscriber: Subscriber) -> None:
@@ -73,8 +105,13 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
 
     @app.websocket("/ws")
     async def live_events(websocket: WebSocket) -> None:
-        # Not authenticated yet; authentication is added together with login.
+        rejection = await check_websocket(websocket)
         await websocket.accept()
+        if rejection is not None:
+            # Accept first, then close with a code the browser can read. Rejecting the
+            # handshake would only show the client a generic connection error.
+            await websocket.close(code=rejection.code, reason=rejection.reason)
+            return
         hub: LiveHub = websocket.app.state.hub
         subscriber = hub.connect()
         try:

@@ -2,12 +2,14 @@
 
 Passes when:
 - the web server serves the Angular app, including deep links,
+- a demo user can log in,
 - the API serves the vessel registry from PostgreSQL (migrated and seeded),
 - telemetry flows simulator -> MQTT -> API -> WebSocket, through the web server's proxy,
 - telemetry flows simulator -> MQTT -> worker -> InfluxDB.
 """
 
 import asyncio
+import http.cookiejar
 import json
 import sys
 import time
@@ -42,8 +44,41 @@ async def wait_for_web_app(deadline: float) -> None:
         await asyncio.sleep(2)
 
 
+# Keeps the session cookies from the demo login for the following requests.
+COOKIES = http.cookiejar.CookieJar()
+SESSION = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(COOKIES))
+
+
+def demo_login() -> str:
+    request = urllib.request.Request(
+        f"{WEB_URL}/api/v1/auth/demo-login",
+        data=json.dumps({"role": "viewer"}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with SESSION.open(request, timeout=5) as response:
+        user: dict[str, Any] = json.load(response)
+    return str(user["email"])
+
+
+async def wait_for_login(deadline: float) -> str:
+    while True:
+        try:
+            return await asyncio.to_thread(demo_login)
+        except OSError:
+            pass
+        if time.monotonic() > deadline:
+            raise TimeoutError("demo login failed")
+        await asyncio.sleep(2)
+
+
+def access_cookie_header() -> str:
+    token = next(cookie.value for cookie in COOKIES if cookie.name == "fp_access")
+    return f"fp_access={token}"
+
+
 def registered_vessel_count() -> int:
-    with urllib.request.urlopen(f"{WEB_URL}/api/v1/vessels", timeout=5) as response:
+    with SESSION.open(f"{WEB_URL}/api/v1/vessels", timeout=5) as response:
         page: dict[str, Any] = json.load(response)
     return int(page["total"])
 
@@ -64,7 +99,7 @@ async def wait_for_vessel_registry(deadline: float) -> int:
 async def wait_for_live_telemetry(deadline: float) -> dict[str, Any]:
     while True:
         try:
-            async with connect(WS_URL) as ws:
+            async with connect(WS_URL, additional_headers={"Cookie": access_cookie_header()}) as ws:
                 await ws.send(json.dumps({"type": "subscribe", "channel": "fleet"}))
                 async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
                     while True:
@@ -103,6 +138,8 @@ async def main() -> None:
     deadline = time.monotonic() + TIMEOUT_S
     await wait_for_web_app(deadline)
     print("web app served")
+    email = await wait_for_login(deadline)
+    print(f"logged in as {email}")
     vessels = await wait_for_vessel_registry(deadline)
     print(f"{vessels} vessels registered in PostgreSQL, served through the API")
     event = await wait_for_live_telemetry(deadline)
