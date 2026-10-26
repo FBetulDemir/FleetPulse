@@ -14,7 +14,8 @@ OUTPUT = Path(__file__).resolve().parents[1] / "apps" / "web" / "openapi.json"
 
 def main() -> None:
     document = create_app(relay=False).openapi()
-    OUTPUT.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    content = json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+    OUTPUT.write_text(content, encoding="utf-8", newline="\n")  # LF on every OS
     print(f"wrote {OUTPUT}")
 
 
