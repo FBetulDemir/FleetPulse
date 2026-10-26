@@ -309,6 +309,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/demo/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Scenario
+         * @description Sends the scenario to the vessel's device. 202: the effect shows up in the live
+         *     data and alerts within seconds, not in this response.
+         */
+        post: operations["trigger_scenario_api_v1_demo_scenarios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -486,6 +507,30 @@ export interface components {
          * @enum {string}
          */
         Role: "admin" | "operator" | "viewer";
+        /**
+         * Scenario
+         * @description Demo failures the simulator can act out. Each ends by itself after a while.
+         * @enum {string}
+         */
+        Scenario: "overheat" | "battery_drain" | "go_offline" | "invalid_data" | "reset";
+        /** ScenarioAccepted */
+        ScenarioAccepted: {
+            /**
+             * Vessel Id
+             * Format: uuid
+             */
+            vessel_id: string;
+            scenario: components["schemas"]["Scenario"];
+        };
+        /** ScenarioRequest */
+        ScenarioRequest: {
+            /**
+             * Vessel Id
+             * Format: uuid
+             */
+            vessel_id: string;
+            scenario: components["schemas"]["Scenario"];
+        };
         /** TelemetryHistory */
         TelemetryHistory: {
             metric: components["schemas"]["Metric"];
@@ -1432,6 +1477,90 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    trigger_scenario_api_v1_demo_scenarios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScenarioRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScenarioAccepted"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": unknown;
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
