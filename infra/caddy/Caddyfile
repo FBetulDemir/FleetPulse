@@ -1,0 +1,21 @@
+# Local development: serves the Angular app and proxies the API on one origin,
+# so the browser needs no CORS and the WebSocket shares the page's origin.
+:80 {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Caddy upgrades WebSocket connections automatically.
+	handle /ws {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		# Unknown paths fall back to index.html so Angular's router can handle them.
+		try_files {path} /index.html
+		file_server
+	}
+}
