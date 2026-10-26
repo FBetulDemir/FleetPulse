@@ -1,7 +1,51 @@
 <header class="page-header">
-  <h1>Fleet</h1>
+  <h1>Fleet overview</h1>
   <p class="subtitle">Live status of every vessel, updated as telemetry arrives.</p>
 </header>
+
+@if (rows().length > 0) {
+  @let fleet = summary();
+  <dl class="kpis" aria-label="Fleet at a glance">
+    <div class="kpi">
+      <dt>Vessels</dt>
+      <dd>{{ fleet.total }}</dd>
+    </div>
+    <div class="kpi">
+      <dt>Reporting live</dt>
+      <dd>
+        {{ fleet.live }} <span class="kpi-of">of {{ fleet.total }}</span>
+      </dd>
+    </div>
+    <div class="kpi" [class.kpi--attention]="fleet.notLive > 0">
+      <dt>Offline or stale</dt>
+      <dd>
+        @if (fleet.notLive > 0) {
+          <mat-icon inline aria-hidden="true">warning</mat-icon>
+        }
+        {{ fleet.notLive }}
+      </dd>
+    </div>
+    <div class="kpi">
+      <dt>Underway</dt>
+      <dd>{{ fleet.underway }}</dd>
+    </div>
+    <div class="kpi" [class.kpi--attention]="fleet.lowBattery > 0">
+      <dt>Average battery</dt>
+      <dd>
+        @if (fleet.averageBattery !== null) {
+          {{ fleet.averageBattery | number: '1.0-0' }} %
+        } @else {
+          —
+        }
+        @if (fleet.lowBattery > 0) {
+          <span class="kpi-of">{{ fleet.lowBattery }} low</span>
+        }
+      </dd>
+    </div>
+  </dl>
+
+  <app-fleet-map class="map" [vessels]="rows()" />
+}
 
 @if (registry.error()) {
   <div class="banner" role="alert">

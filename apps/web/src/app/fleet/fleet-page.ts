@@ -12,6 +12,8 @@ import { interval, map } from 'rxjs';
 
 import { VesselPage } from '../api/models';
 import { FleetLiveStore } from '../live/fleet-live-store';
+import { FleetMap } from '../map/fleet-map';
+import { summarizeFleet } from './fleet-summary';
 import { FRESHNESS_LABELS, Freshness, VesselRow, buildRows, formatAge } from './vessel-row';
 
 export const VESSELS_URL = '/api/v1/vessels?is_active=true&limit=100';
@@ -20,6 +22,7 @@ export const VESSELS_URL = '/api/v1/vessels?is_active=true&limit=100';
   selector: 'app-fleet-page',
   imports: [
     DecimalPipe,
+    FleetMap,
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
@@ -52,6 +55,7 @@ export class FleetPage {
       this.now(),
     ),
   );
+  protected readonly summary = computed(() => summarizeFleet(this.rows()));
   protected readonly columns = [
     'vessel',
     'type',
