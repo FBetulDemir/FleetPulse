@@ -7,10 +7,11 @@ from urllib.parse import urlsplit
 
 import anyio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from influxdb_client_3 import InfluxDBClient3
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from fleetpulse_backend.api import auth, health, vessels
+from fleetpulse_backend.api import auth, health, telemetry, vessels
 from fleetpulse_backend.api.deps import ACCESS_COOKIE, authenticate
 from fleetpulse_backend.api.hub import LiveHub, Subscriber
 from fleetpulse_backend.api.problems import install_problem_handlers
@@ -18,6 +19,7 @@ from fleetpulse_backend.api.relay import relay_mqtt
 from fleetpulse_backend.api.schemas import SubscriptionMessage
 from fleetpulse_backend.config import Settings
 from fleetpulse_backend.db.session import create_engine, create_sessionmaker
+from fleetpulse_backend.telemetry import TelemetryStore
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -81,6 +83,13 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_engine(settings.database_url)
         app.state.sessionmaker = create_sessionmaker(engine)
+        app.state.telemetry = TelemetryStore(
+            InfluxDBClient3(
+                host=settings.influx_url,
+                database=settings.influx_database,
+                token=settings.influx_token,
+            )
+        )
         app.state.hub = LiveHub()
         relay_task = asyncio.create_task(relay_mqtt(settings, app.state.hub)) if relay else None
         yield
@@ -88,6 +97,7 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
             relay_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await relay_task
+        app.state.telemetry.close()
         await engine.dispose()
 
     app = FastAPI(
@@ -102,6 +112,7 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
     app.include_router(auth.router)
     app.include_router(health.router)
     app.include_router(vessels.router)
+    app.include_router(telemetry.router)
 
     @app.websocket("/ws")
     async def live_events(websocket: WebSocket) -> None:

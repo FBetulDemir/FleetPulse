@@ -620,6 +620,203 @@
           }
         }
       }
+    },
+    "/api/v1/vessels/{vessel_id}/telemetry/latest": {
+      "get": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Latest Telemetry",
+        "description": "The most recent reading from the last 24 hours.",
+        "operationId": "latest_telemetry_api_v1_vessels__vessel_id__telemetry_latest_get",
+        "parameters": [
+          {
+            "name": "vessel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Vessel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vessels/{vessel_id}/telemetry/history": {
+      "get": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Telemetry History",
+        "description": "One metric over time, in buckets sized to give at most a few hundred points.\n\nDefaults to the last hour. Ranges are limited to 72 hours.",
+        "operationId": "telemetry_history_api_v1_vessels__vessel_id__telemetry_history_get",
+        "parameters": [
+          {
+            "name": "vessel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Vessel Id"
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Metric"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryHistory"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -667,6 +864,48 @@
         ],
         "title": "FieldError"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HistoryBucket": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Time"
+          },
+          "avg": {
+            "type": "number",
+            "title": "Avg"
+          },
+          "min": {
+            "type": "number",
+            "title": "Min"
+          },
+          "max": {
+            "type": "number",
+            "title": "Max"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "avg",
+          "min",
+          "max"
+        ],
+        "title": "HistoryBucket"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -687,6 +926,55 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "Metric": {
+        "type": "string",
+        "enum": [
+          "speed_knots",
+          "battery_percent",
+          "battery_voltage",
+          "motor_temperature_c",
+          "ambient_temperature_c"
+        ],
+        "title": "Metric",
+        "description": "Metrics with meaningful averages. Course is left out on purpose: it is an angle,\nand the average of 359° and 1° is 180°, which is wrong."
+      },
+      "MetricSummary": {
+        "properties": {
+          "avg": {
+            "type": "number",
+            "title": "Avg"
+          },
+          "min": {
+            "type": "number",
+            "title": "Min"
+          },
+          "max": {
+            "type": "number",
+            "title": "Max"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "avg",
+          "min",
+          "max",
+          "count"
+        ],
+        "title": "MetricSummary"
+      },
+      "NavigationStatus": {
+        "type": "string",
+        "enum": [
+          "docked",
+          "underway",
+          "anchored"
+        ],
+        "title": "NavigationStatus"
       },
       "Problem": {
         "properties": {
@@ -756,6 +1044,152 @@
         ],
         "title": "Role"
       },
+      "TelemetryHistory": {
+        "properties": {
+          "metric": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "bucket_seconds": {
+            "type": "integer",
+            "title": "Bucket Seconds"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryBucket"
+            },
+            "type": "array",
+            "title": "Buckets"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric",
+          "start",
+          "end",
+          "bucket_seconds",
+          "buckets",
+          "summary"
+        ],
+        "title": "TelemetryHistory"
+      },
+      "TelemetryMessage": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "vessel_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "title": "Vessel Id"
+          },
+          "device_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "title": "Device Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude"
+          },
+          "speed_knots": {
+            "type": "number",
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Speed Knots"
+          },
+          "course_degrees": {
+            "type": "number",
+            "exclusiveMaximum": 360.0,
+            "minimum": 0.0,
+            "title": "Course Degrees"
+          },
+          "battery_percent": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Battery Percent"
+          },
+          "battery_voltage": {
+            "type": "number",
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Battery Voltage"
+          },
+          "motor_temperature_c": {
+            "type": "number",
+            "maximum": 200.0,
+            "minimum": -40.0,
+            "title": "Motor Temperature C"
+          },
+          "ambient_temperature_c": {
+            "type": "number",
+            "maximum": 60.0,
+            "minimum": -60.0,
+            "title": "Ambient Temperature C"
+          },
+          "status": {
+            "$ref": "#/components/schemas/NavigationStatus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "vessel_id",
+          "device_id",
+          "timestamp",
+          "latitude",
+          "longitude",
+          "speed_knots",
+          "course_degrees",
+          "battery_percent",
+          "battery_voltage",
+          "motor_temperature_c",
+          "ambient_temperature_c",
+          "status"
+        ],
+        "title": "TelemetryMessage",
+        "description": "Payload of `fleetpulse/v1/vessels/{vessel_id}/telemetry`."
+      },
       "UserOut": {
         "properties": {
           "id": {
@@ -783,6 +1217,46 @@
           "role"
         ],
         "title": "UserOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       },
       "VesselCreate": {
         "properties": {
