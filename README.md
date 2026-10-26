@@ -68,6 +68,8 @@ npm test
 npm run lint
 ```
 
+Adding an npm package on Windows can leave Linux builds of some tools out of `package-lock.json`, which breaks `npm ci` in Docker and CI. If that happens, delete `node_modules` and `package-lock.json` and run `npm install` again.
+
 ## License
 
 [MIT](LICENSE)
