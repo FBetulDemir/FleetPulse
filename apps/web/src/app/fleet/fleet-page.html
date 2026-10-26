@@ -1,0 +1,107 @@
+<header class="page-header">
+  <h1>Fleet</h1>
+  <p class="subtitle">Live status of every vessel, updated as telemetry arrives.</p>
+</header>
+
+@if (rows().length === 0) {
+  <div class="empty" role="status">
+    <mat-spinner diameter="32" aria-hidden="true" />
+    <p>Waiting for vessel data…</p>
+  </div>
+} @else {
+  <div class="table-scroll">
+    <table mat-table [dataSource]="rows()" [trackBy]="trackByVessel">
+      <caption class="visually-hidden" [textContent]="caption()"></caption>
+
+      <ng-container matColumnDef="vessel">
+        <th mat-header-cell *matHeaderCellDef scope="col">Vessel</th>
+        <th mat-cell *matCellDef="let row" scope="row" class="vessel-id">{{ row.vesselId }}</th>
+      </ng-container>
+
+      <ng-container matColumnDef="freshness">
+        <th mat-header-cell *matHeaderCellDef scope="col">Connection</th>
+        <td mat-cell *matCellDef="let row">
+          <span class="freshness" [class]="'freshness--' + row.freshness">
+            <mat-icon inline>{{ freshnessIcon(row.freshness) }}</mat-icon>
+            {{ freshnessLabel(row.freshness) }}
+          </span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef scope="col">Status</th>
+        <td mat-cell *matCellDef="let row" class="capitalize">{{ row.status ?? '—' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="speed">
+        <th mat-header-cell *matHeaderCellDef scope="col" class="numeric">Speed</th>
+        <td mat-cell *matCellDef="let row" class="numeric">
+          @if (row.speedKnots !== null) {
+            {{ row.speedKnots | number: '1.1-1' }} kn
+          } @else {
+            —
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="course">
+        <th mat-header-cell *matHeaderCellDef scope="col" class="numeric">Course</th>
+        <td mat-cell *matCellDef="let row" class="numeric">
+          @if (row.courseDegrees !== null) {
+            {{ row.courseDegrees | number: '1.0-0' }}°
+          } @else {
+            —
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="battery">
+        <th mat-header-cell *matHeaderCellDef scope="col">Battery</th>
+        <td mat-cell *matCellDef="let row">
+          @if (row.batteryPercent !== null) {
+            <div class="battery" [class.battery--low]="row.lowBattery">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="row.batteryPercent"
+                [attr.aria-label]="'Battery of ' + row.vesselId"
+              />
+              <span class="numeric"
+                >{{ row.batteryPercent | number: '1.0-0' }} %
+                @if (row.lowBattery) {
+                  <span class="low-label">low</span>
+                }
+              </span>
+            </div>
+          } @else {
+            —
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="motorTemperature">
+        <th mat-header-cell *matHeaderCellDef scope="col" class="numeric">Motor temp.</th>
+        <td mat-cell *matCellDef="let row" class="numeric">
+          @if (row.motorTemperatureC !== null) {
+            {{ row.motorTemperatureC | number: '1.1-1' }} °C
+          } @else {
+            —
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="updated">
+        <th mat-header-cell *matHeaderCellDef scope="col">Last update</th>
+        <td mat-cell *matCellDef="let row">
+          @if (row.updatedAt) {
+            <time [attr.datetime]="row.updatedAt">{{ formatAge(row.ageSeconds) }}</time>
+          } @else {
+            —
+          }
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  </div>
+}
