@@ -4,6 +4,7 @@ import {
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import { MatIconRegistry } from '@angular/material/icon';
 import { provideRouter } from '@angular/router';
 
@@ -13,6 +14,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
+    provideHttpClient(withFetch()),
     // Use the Material Symbols font loaded in index.html for <mat-icon>.
     provideAppInitializer(() => {
       inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');

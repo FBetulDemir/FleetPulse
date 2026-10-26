@@ -5,6 +5,8 @@ const tseslint = require('typescript-eslint');
 const angular = require('angular-eslint');
 
 module.exports = defineConfig([
+  // Generated from openapi.json by `npm run api:generate`.
+  { ignores: ['src/app/api/schema.d.ts'] },
   {
     files: ['**/*.ts'],
     extends: [

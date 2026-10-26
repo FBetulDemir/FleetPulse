@@ -1,5 +1,6 @@
-import { NavigationStatus } from '../live/live-events';
+import { Vessel, VesselType } from '../api/models';
 import { VesselLiveState } from '../live/fleet-live-store';
+import { ConnectionState, NavigationStatus } from '../live/live-events';
 
 /** Telemetry older than this is shown as stale even if the device is still connected. */
 export const STALE_AFTER_MS = 10_000;
@@ -9,12 +10,16 @@ export const LOW_BATTERY_PERCENT = 20;
  * - live: connected and reporting
  * - stale: connected but silent for too long
  * - offline: the broker reported the device disconnected
- * - waiting: connected, but no telemetry received yet
+ * - waiting: no telemetry received yet
  */
 export type Freshness = 'live' | 'stale' | 'offline' | 'waiting';
 
 export interface VesselRow {
+  /** The vessel's MQTT identifier, e.g. "vessel-001". */
   vesselId: string;
+  /** From the vessel registry; falls back to the identifier for unregistered vessels. */
+  name: string;
+  vesselType: VesselType | null;
   freshness: Freshness;
   status: NavigationStatus | null;
   speedKnots: number | null;
@@ -26,12 +31,38 @@ export interface VesselRow {
   ageSeconds: number | null;
 }
 
-export function toRow(vessel: VesselLiveState, nowMs: number): VesselRow {
-  const telemetry = vessel.telemetry;
+/**
+ * Joins registered vessels (from the API) with live state (from the WebSocket).
+ *
+ * Vessels appear if they are registered or reporting, so the table still works when
+ * the registry fails to load, and new devices show up before they are registered.
+ */
+export function buildRows(
+  registered: readonly Vessel[],
+  live: readonly VesselLiveState[],
+  nowMs: number,
+): VesselRow[] {
+  const registry = new Map(registered.map((vessel) => [vessel.identifier, vessel]));
+  const liveById = new Map(live.map((state) => [state.vesselId, state]));
+  const ids = new Set([...registry.keys(), ...liveById.keys()]);
+  return [...ids]
+    .map((id) => toRow(id, registry.get(id), liveById.get(id), nowMs))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+}
+
+export function toRow(
+  vesselId: string,
+  vessel: Vessel | undefined,
+  live: VesselLiveState | undefined,
+  nowMs: number,
+): VesselRow {
+  const telemetry = live?.telemetry ?? null;
   const ageMs = telemetry ? Math.max(0, nowMs - Date.parse(telemetry.timestamp)) : null;
   return {
-    vesselId: vessel.vesselId,
-    freshness: freshness(vessel, ageMs),
+    vesselId,
+    name: vessel?.name ?? vesselId,
+    vesselType: vessel?.vessel_type ?? null,
+    freshness: freshness(live?.connection ?? null, ageMs),
     status: telemetry?.status ?? null,
     speedKnots: telemetry?.speed_knots ?? null,
     courseDegrees: telemetry?.course_degrees ?? null,
@@ -43,8 +74,8 @@ export function toRow(vessel: VesselLiveState, nowMs: number): VesselRow {
   };
 }
 
-function freshness(vessel: VesselLiveState, ageMs: number | null): Freshness {
-  if (vessel.connection === 'offline') return 'offline';
+function freshness(connection: ConnectionState | null, ageMs: number | null): Freshness {
+  if (connection === 'offline') return 'offline';
   if (ageMs === null) return 'waiting';
   return ageMs > STALE_AFTER_MS ? 'stale' : 'live';
 }

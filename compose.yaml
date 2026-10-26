@@ -3,6 +3,7 @@
 name: fleetpulse
 
 x-backend-env: &backend-env
+  FLEETPULSE_DATABASE_URL: postgresql+asyncpg://fleetpulse:fleetpulse@postgres:5432/fleetpulse
   FLEETPULSE_MQTT_HOST: mosquitto
   FLEETPULSE_INFLUX_URL: http://influxdb:8181
   FLEETPULSE_INFLUX_DATABASE: fleetpulse
@@ -54,6 +55,35 @@ services:
         || influxdb3 create database fleetpulse --retention-period 7d --host http://influxdb:8181
     restart: "no"
 
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      # Local development credentials only.
+      POSTGRES_USER: fleetpulse
+      POSTGRES_PASSWORD: fleetpulse
+      POSTGRES_DB: fleetpulse
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "fleetpulse", "-d", "fleetpulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-off job: apply database migrations, then load demo data.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["sh", "-c", "fleetpulse-migrate && fleetpulse-seed"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   worker:
     build:
       context: .
@@ -77,12 +107,14 @@ services:
     depends_on:
       mosquitto:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live')"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/ready')"
       interval: 5s
       timeout: 5s
       retries: 10
@@ -111,5 +143,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres-data:
   mosquitto-data:
   influxdb-data:

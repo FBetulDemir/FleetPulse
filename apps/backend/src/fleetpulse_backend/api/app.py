@@ -4,22 +4,18 @@ import logging
 from collections.abc import AsyncIterator
 
 import anyio
-from fastapi import APIRouter, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from fleetpulse_backend.api import health, vessels
 from fleetpulse_backend.api.hub import LiveHub, Subscriber
+from fleetpulse_backend.api.problems import install_problem_handlers
 from fleetpulse_backend.api.relay import relay_mqtt
 from fleetpulse_backend.api.schemas import SubscriptionMessage
 from fleetpulse_backend.config import Settings
+from fleetpulse_backend.db.session import create_engine, create_sessionmaker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-
-health = APIRouter(prefix="/api/v1/health", tags=["health"])
-
-
-@health.get("/live")
-async def live() -> dict[str, str]:
-    return {"status": "ok"}
 
 
 async def receive_subscriptions(websocket: WebSocket, hub: LiveHub, subscriber: Subscriber) -> None:
@@ -51,6 +47,8 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        engine = create_engine(settings.database_url)
+        app.state.sessionmaker = create_sessionmaker(engine)
         app.state.hub = LiveHub()
         relay_task = asyncio.create_task(relay_mqtt(settings, app.state.hub)) if relay else None
         yield
@@ -58,6 +56,7 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
             relay_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await relay_task
+        await engine.dispose()
 
     app = FastAPI(
         title="FleetPulse API",
@@ -66,7 +65,9 @@ def create_app(settings: Settings | None = None, *, relay: bool = True) -> FastA
         openapi_url="/api/openapi.json",
         lifespan=lifespan,
     )
-    app.include_router(health)
+    install_problem_handlers(app)
+    app.include_router(health.router)
+    app.include_router(vessels.router)
 
     @app.websocket("/ws")
     async def live_events(websocket: WebSocket) -> None:
