@@ -7,6 +7,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="FLEETPULSE_")
 
+    database_url: str = "postgresql+asyncpg://fleetpulse:fleetpulse@localhost:5432/fleetpulse"
+
     mqtt_host: str = "localhost"
     mqtt_port: int = 1883
 
