@@ -127,6 +127,17 @@ def test_malformed_vessel_id_is_422(viewer: DbClient) -> None:
     assert viewer.client.get(f"{URL}/not-a-uuid").status_code == 422
 
 
+def test_demo_vessel_names_keep_their_swedish_letters() -> None:
+    # Guards against encoding damage: a Windows tool once turned "Ä" into "Ã„" here.
+    assert [vessel["name"] for vessel in DEMO_VESSELS] == [
+        "Älvskutt",
+        "Styrsö Express",
+        "Vinga Pilot",
+        "Hönö Runner",
+        "Donsö Surveyor",
+    ]
+
+
 def test_seed_is_idempotent(viewer: DbClient) -> None:
     viewer.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
     viewer.run(lambda sessionmaker: seed(sessionmaker, "demo password"))
