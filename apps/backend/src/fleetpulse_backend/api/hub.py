@@ -8,6 +8,8 @@ import asyncio
 from typing import Any
 
 FLEET_CHANNEL = "fleet"
+# Only alert events: for pages that need alerts but not the full telemetry stream.
+ALERTS_CHANNEL = "alerts"
 
 Event = dict[str, Any]
 
@@ -58,6 +60,8 @@ class LiveHub:
             self._latest_status[vessel_id] = event
 
         channels = {FLEET_CHANNEL, vessel_channel(vessel_id)}
+        if event["type"] == "alert":
+            channels.add(ALERTS_CHANNEL)
         for subscriber in self._subscribers:
             if subscriber.channels & channels:
                 subscriber.offer(event)

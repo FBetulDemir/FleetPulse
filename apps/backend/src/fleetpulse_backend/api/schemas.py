@@ -4,7 +4,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from fleetpulse_backend.api.hub import FLEET_CHANNEL, vessel_channel
+from fleetpulse_backend.api.hub import ALERTS_CHANNEL, FLEET_CHANNEL, vessel_channel
 from fleetpulse_contracts.telemetry import Identifier
 
 
@@ -12,7 +12,7 @@ class SubscriptionMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["subscribe", "unsubscribe"]
-    channel: Literal["fleet", "vessel"]
+    channel: Literal["fleet", "vessel", "alerts"]
     vessel_id: Identifier | None = None
 
     @model_validator(mode="after")
@@ -23,6 +23,8 @@ class SubscriptionMessage(BaseModel):
 
     @property
     def channel_key(self) -> str:
+        if self.channel == "alerts":
+            return ALERTS_CHANNEL
         if self.vessel_id is None:
             return FLEET_CHANNEL
         return vessel_channel(self.vessel_id)

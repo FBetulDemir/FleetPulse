@@ -37,6 +37,7 @@ def to_event(topic: str, payload: bytes) -> tuple[str, Event] | None:
             return None
         return alert.alert.vessel_id, {
             "type": "alert",
+            "vessel_id": alert.alert.vessel_id,
             "event": alert.event,
             "alert": alert.alert.model_dump(mode="json"),
         }

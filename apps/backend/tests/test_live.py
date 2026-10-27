@@ -87,6 +87,17 @@ def test_fleet_subscriber_receives_every_vessel(client: TestClient) -> None:
         assert ws.receive_json()["vessel_id"] == "vessel-002"
 
 
+def test_alerts_subscriber_receives_only_alerts(client: TestClient) -> None:
+    alert = {"type": "alert", "vessel_id": "vessel-001", "event": "created", "alert": {}}
+    with client.websocket_connect("/ws") as ws:
+        subscribe(ws, channel="alerts")
+
+        publish(client, "vessel-001", telemetry_event("vessel-001"))
+        publish(client, "vessel-001", alert)
+
+        assert ws.receive_json() == alert
+
+
 def test_new_subscriber_gets_latest_state_first(client: TestClient) -> None:
     status = {"type": "vessel_status", "vessel_id": "vessel-003", "state": "offline"}
     publish(client, "vessel-003", status)

@@ -219,5 +219,6 @@ def test_relay_forwards_alert_events_to_websocket_clients() -> None:
     vessel_id, forwarded = result
     assert vessel_id == "vessel-001"
     assert forwarded["type"] == "alert"
+    assert forwarded["vessel_id"] == "vessel-001"  # same routing field as other live events
     assert forwarded["event"] == "created"
     assert json.dumps(forwarded)  # serialisable for the WebSocket
