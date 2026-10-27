@@ -1,13 +1,19 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { signal } from '@angular/core';
+import { Component, input, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { telemetry } from '../../testing/telemetry';
 import { registeredVessel, vesselPage } from '../../testing/vessels';
 import { FleetLiveStore, VesselLiveState } from '../live/fleet-live-store';
+import { DemoPanel } from './demo-panel';
 import { FleetPage, VESSELS_URL } from './fleet-page';
+
+@Component({ selector: 'app-demo-panel', template: '' })
+class StubDemoPanel {
+  readonly vessels = input<unknown>();
+}
 
 describe('FleetPage', () => {
   const live = signal<VesselLiveState[]>([]);
@@ -23,6 +29,11 @@ describe('FleetPage', () => {
     // The page provides its own store, so replace it at the component level.
     TestBed.overrideComponent(FleetPage, {
       set: { providers: [{ provide: FleetLiveStore, useValue: { vessels: live } }] },
+    });
+    // The demo panel has its own tests and requests; these tests are about the overview.
+    TestBed.overrideComponent(FleetPage, {
+      remove: { imports: [DemoPanel] },
+      add: { imports: [StubDemoPanel] },
     });
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(FleetPage);
