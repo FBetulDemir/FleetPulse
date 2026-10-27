@@ -23,19 +23,44 @@ export interface Telemetry {
   status: NavigationStatus;
 }
 
+export type AlertSeverity = 'info' | 'warning' | 'critical';
+
+/** An alert as sent over the WebSocket (`vessel_id` is the MQTT identifier). */
+export interface LiveAlert {
+  id: string;
+  vessel_id: string;
+  alert_type: 'threshold' | 'offline' | 'invalid_telemetry';
+  severity: AlertSeverity;
+  status: 'active' | 'acknowledged' | 'resolved';
+  message: string;
+  value: number | null;
+  triggered_at: string;
+  acknowledged_at: string | null;
+  resolved_at: string | null;
+}
+
 export type LiveEvent =
   | { type: 'telemetry'; vessel_id: string; data: Telemetry }
-  | { type: 'vessel_status'; vessel_id: string; state: ConnectionState };
+  | { type: 'vessel_status'; vessel_id: string; state: ConnectionState }
+  | {
+      type: 'alert';
+      vessel_id: string;
+      event: 'created' | 'acknowledged' | 'resolved';
+      alert: LiveAlert;
+    };
 
 export type ControlMessage =
   { type: 'subscribed' | 'unsubscribed'; channel: string } | { type: 'error'; message: string };
 
 export type ServerMessage = LiveEvent | ControlMessage;
 
-export type LiveChannel = { channel: 'fleet' } | { channel: 'vessel'; vessel_id: string };
+export type LiveChannel =
+  { channel: 'fleet' } | { channel: 'alerts' } | { channel: 'vessel'; vessel_id: string };
 
 export type ClientMessage = { type: 'subscribe' | 'unsubscribe' } & LiveChannel;
 
 export function isLiveEvent(message: ServerMessage): message is LiveEvent {
-  return message.type === 'telemetry' || message.type === 'vessel_status';
+  return (
+    message.type === 'telemetry' || message.type === 'vessel_status' || message.type === 'alert'
+  );
 }

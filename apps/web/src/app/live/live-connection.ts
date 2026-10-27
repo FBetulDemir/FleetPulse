@@ -92,5 +92,12 @@ export class LiveConnection {
 }
 
 function belongsTo(event: LiveEvent, channel: LiveChannel): boolean {
-  return channel.channel === 'fleet' || event.vessel_id === channel.vessel_id;
+  switch (channel.channel) {
+    case 'fleet':
+      return true;
+    case 'alerts':
+      return event.type === 'alert';
+    case 'vessel':
+      return event.vessel_id === channel.vessel_id;
+  }
 }

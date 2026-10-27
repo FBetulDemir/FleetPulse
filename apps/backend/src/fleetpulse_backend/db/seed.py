@@ -35,11 +35,11 @@ DEMO_VESSELS = [
         "length_m": length_m,
     }
     for number, name, vessel_type, length_m in [
-        (1, "Ã„lvskutt", VesselType.FERRY, 24.0),
-        (2, "StyrsÃ¶ Express", VesselType.FERRY, 32.5),
+        (1, "Älvskutt", VesselType.FERRY, 24.0),
+        (2, "Styrsö Express", VesselType.FERRY, 32.5),
         (3, "Vinga Pilot", VesselType.PILOT, 16.8),
-        (4, "HÃ¶nÃ¶ Runner", VesselType.WORKBOAT, 19.2),
-        (5, "DonsÃ¶ Surveyor", VesselType.RESEARCH, 14.5),
+        (4, "Hönö Runner", VesselType.WORKBOAT, 19.2),
+        (5, "Donsö Surveyor", VesselType.RESEARCH, 14.5),
     ]
 ]
 

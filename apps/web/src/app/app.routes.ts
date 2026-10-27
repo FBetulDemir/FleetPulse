@@ -15,8 +15,13 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        title: 'Fleet · FleetPulse',
+        title: 'Overview · FleetPulse',
         loadComponent: () => import('./fleet/fleet-page').then((m) => m.FleetPage),
+      },
+      {
+        path: 'alerts',
+        title: 'Alerts · FleetPulse',
+        loadComponent: () => import('./alerts/alerts-page').then((m) => m.AlertsPage),
       },
       {
         path: 'vessels/:id',

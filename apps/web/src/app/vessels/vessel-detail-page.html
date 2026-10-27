@@ -120,7 +120,7 @@
           <mat-button-toggle-group
             aria-label="Time range"
             [value]="rangeHours()"
-            (valueChange)="rangeHours.set($event)"
+            (valueChange)="setRange($event)"
           >
             @for (hours of ranges; track hours) {
               <mat-button-toggle [value]="hours">{{ hours }} h</mat-button-toggle>

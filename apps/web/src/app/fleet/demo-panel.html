@@ -1,0 +1,51 @@
+@if (enabled()) {
+  <section class="demo" aria-labelledby="demo-title">
+    <div class="intro">
+      <h2 id="demo-title">
+        <mat-icon inline aria-hidden="true">science</mat-icon>
+        Try a failure
+      </h2>
+      <p>
+        Make a simulated vessel misbehave and watch the alert appear live. Every scenario ends by
+        itself within two minutes.
+      </p>
+    </div>
+
+    @if (canTrigger()) {
+      <div class="controls">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Vessel</mat-label>
+          <mat-select [value]="vesselId()" (valueChange)="vesselId.set($event)">
+            @for (vessel of vessels(); track vessel.id) {
+              <mat-option [value]="vessel.id">{{ vessel.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <div class="buttons">
+          @for (button of buttons; track button.scenario) {
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="busy() || !vesselId()"
+              (click)="trigger(button.scenario)"
+            >
+              <mat-icon>{{ button.icon }}</mat-icon>
+              {{ button.label }}
+            </button>
+          }
+          <button
+            mat-button
+            type="button"
+            [disabled]="busy() || !vesselId()"
+            (click)="trigger('reset')"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+    } @else {
+      <p class="hint">Sign in as Operator or Admin to try the failure scenarios.</p>
+    }
+  </section>
+}

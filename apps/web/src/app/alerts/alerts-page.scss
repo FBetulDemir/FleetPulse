@@ -1,0 +1,133 @@
+:host {
+  display: block;
+}
+
+.page-header {
+  margin-bottom: 16px;
+
+  h1 {
+    font: var(--mat-sys-headline-medium);
+    margin: 0 0 4px;
+  }
+
+  .subtitle {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+
+  mat-form-field {
+    width: 200px;
+  }
+}
+
+.alert-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium);
+}
+
+.alert {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  // The severity is also shown as a colored edge, alongside its icon and text.
+  border-left: 4px solid transparent;
+
+  & + & {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  &--critical {
+    border-left-color: var(--mat-sys-error);
+
+    .severity {
+      color: var(--mat-sys-error);
+    }
+  }
+
+  &--warning {
+    border-left-color: var(--fp-status-warning);
+
+    .severity {
+      color: var(--fp-status-warning);
+    }
+  }
+
+  &--resolved {
+    border-left-color: var(--mat-sys-outline-variant);
+
+    .severity,
+    .message-text {
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}
+
+.severity {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--mat-sys-label-large);
+}
+
+.body p {
+  margin: 0;
+}
+
+.message-text {
+  font: var(--mat-sys-body-large);
+}
+
+.meta {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+
+  a {
+    color: var(--mat-sys-primary);
+  }
+}
+
+.state--active {
+  font-weight: 500;
+  color: var(--mat-sys-on-surface);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.more {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.message--error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+@media (max-width: 600px) {
+  .alert {
+    grid-template-columns: 1fr;
+  }
+}

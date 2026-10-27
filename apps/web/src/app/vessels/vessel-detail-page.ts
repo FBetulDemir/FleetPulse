@@ -142,6 +142,11 @@ export class VesselDetailPage {
     if (index === HISTORY_TAB) this.historyOpened.set(true);
   }
 
+  /** Ignores the `undefined` Material's toggle group emits while starting up. */
+  protected setRange(hours: RangeHours | undefined): void {
+    if (hours) this.rangeHours.set(hours);
+  }
+
   protected refreshHistory(): void {
     this.historyRefresh.update((n) => n + 1);
   }
