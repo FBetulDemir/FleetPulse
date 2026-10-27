@@ -15,3 +15,6 @@ export type Role = Schemas['Role'];
 export type AuthOptions = Schemas['AuthOptions'];
 export type TelemetryReading = Schemas['TelemetryMessage'];
 export type TelemetryHistory = Schemas['TelemetryHistory'];
+export type Alert = Schemas['AlertOut'];
+export type AlertPage = Schemas['AlertPage'];
+export type Scenario = Schemas['Scenario'];

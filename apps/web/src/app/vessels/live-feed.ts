@@ -49,7 +49,7 @@ export function liveFeed(vesselId: Signal<string | undefined>): LiveFeed {
     )
     .subscribe((event) => {
       if (event.type === 'telemetry') readings.update((r) => appendReading(r, event.data));
-      else connection.set(event.state);
+      else if (event.type === 'vessel_status') connection.set(event.state);
     });
 
   return {

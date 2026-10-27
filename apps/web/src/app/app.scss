@@ -31,6 +31,43 @@
   font: var(--mat-sys-title-large);
 }
 
+.nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--mat-sys-corner-full);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+  }
+
+  &--active {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+}
+
+.badge {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--mat-sys-corner-full);
+  background: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
+  font: var(--mat-sys-label-small);
+  line-height: 20px;
+  text-align: center;
+}
+
 .spacer {
   flex: 1;
 }
@@ -91,9 +128,25 @@
   }
 }
 
+// Tablets and phones: the navigation moves to its own row below the brand.
+@media (max-width: 720px) {
+  .toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding-block: 8px;
+    row-gap: 4px;
+  }
+
+  .nav {
+    order: 1;
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
 @media (max-width: 480px) {
   .toolbar {
-    gap: 8px;
+    column-gap: 8px;
     padding-inline: 12px;
   }
 

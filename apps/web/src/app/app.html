@@ -5,6 +5,29 @@
     <mat-icon>directions_boat</mat-icon>
     FleetPulse
   </span>
+  @if (user()) {
+    <nav class="nav" aria-label="Main">
+      <a
+        routerLink="/"
+        routerLinkActive="nav-link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        class="nav-link"
+        >Overview</a
+      >
+      <a
+        routerLink="/alerts"
+        routerLinkActive="nav-link--active"
+        ariaCurrentWhenActive="page"
+        class="nav-link"
+      >
+        Alerts
+        @if (openAlerts() > 0) {
+          <span class="badge">{{ openAlerts() }}<span class="visually-hidden"> open</span></span>
+        }
+      </a>
+    </nav>
+  }
   <span class="spacer"></span>
   <span class="simulated" title="All vessels and readings on this site are simulated">
     Simulated data

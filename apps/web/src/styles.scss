@@ -54,3 +54,10 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+// New-alert notifications (see AlertsFeed): severity shows in the text and the color.
+.mat-mdc-snack-bar-container.fp-snack-critical {
+  --mat-snack-bar-container-color: var(--mat-sys-error-container);
+  --mat-snack-bar-supporting-text-color: var(--mat-sys-on-error-container);
+  --mat-snack-bar-button-color: var(--mat-sys-on-error-container);
+}

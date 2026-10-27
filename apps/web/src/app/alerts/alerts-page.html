@@ -1,0 +1,104 @@
+<header class="page-header">
+  <h1>Alerts</h1>
+  <p class="subtitle">
+    Raised automatically from live telemetry. They resolve when the condition clears.
+  </p>
+</header>
+
+<div class="filters">
+  <mat-button-toggle-group
+    aria-label="Alert status"
+    [value]="status()"
+    (valueChange)="setStatus($event)"
+  >
+    <mat-button-toggle value="open">Open</mat-button-toggle>
+    <mat-button-toggle value="resolved">Resolved</mat-button-toggle>
+    <mat-button-toggle value="all">All</mat-button-toggle>
+  </mat-button-toggle-group>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Severity</mat-label>
+    <mat-select [value]="severity()" (valueChange)="severity.set($event)">
+      <mat-option value="all">All severities</mat-option>
+      <mat-option value="critical">Critical</mat-option>
+      <mat-option value="warning">Warning</mat-option>
+      <mat-option value="info">Info</mat-option>
+    </mat-select>
+  </mat-form-field>
+</div>
+
+@if (alerts.error()) {
+  <p class="message message--error" role="alert">
+    Alerts could not be loaded.
+    <button mat-button type="button" (click)="alerts.reload()">Retry</button>
+  </p>
+} @else if (alerts.hasValue()) {
+  @let page = alerts.value();
+  @if (page.items.length === 0) {
+    <p class="empty" role="status">
+      @if (status() === 'open') {
+        <mat-icon inline aria-hidden="true">check_circle</mat-icon>
+        No open alerts. Every vessel is within its limits.
+      } @else {
+        No alerts match these filters.
+      }
+    </p>
+  } @else {
+    <ul class="alert-list" aria-label="Alerts">
+      @for (alert of page.items; track alert.id) {
+        <li
+          class="alert"
+          [class]="'alert--' + alert.severity"
+          [class.alert--resolved]="alert.status === 'resolved'"
+        >
+          <span class="severity">
+            <mat-icon inline aria-hidden="true">{{ severities[alert.severity].icon }}</mat-icon>
+            {{ severities[alert.severity].label }}
+          </span>
+
+          <div class="body">
+            <p class="message-text">{{ alert.message }}</p>
+            <p class="meta">
+              <a [routerLink]="['/vessels', alert.vessel_id]">{{ alert.vessel_name }}</a>
+              ·
+              <time [attr.datetime]="alert.triggered_at" [title]="formatTime(alert.triggered_at)">
+                {{ age(alert.triggered_at) }}
+              </time>
+              ·
+              @switch (alert.status) {
+                @case ('active') {
+                  <span class="state state--active">Active</span>
+                }
+                @case ('acknowledged') {
+                  <span class="state"
+                    >Acknowledged by {{ alert.acknowledged_by ?? 'someone' }}</span
+                  >
+                }
+                @case ('resolved') {
+                  <span class="state">Resolved</span>
+                }
+              }
+            </p>
+          </div>
+
+          @if (canAcknowledge() && alert.status === 'active') {
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="acknowledging().has(alert.id)"
+              (click)="acknowledge(alert)"
+            >
+              Acknowledge
+              <span class="visually-hidden">: {{ alert.message }}</span>
+            </button>
+          }
+        </li>
+      }
+    </ul>
+    @if (page.total > page.items.length) {
+      <p class="more">Showing the newest {{ page.items.length }} of {{ page.total }} alerts.</p>
+    }
+  }
+} @else {
+  <mat-progress-bar mode="indeterminate" aria-label="Loading alerts" />
+}

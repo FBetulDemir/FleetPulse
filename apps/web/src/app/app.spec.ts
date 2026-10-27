@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { user } from '../testing/users';
 import { User } from './api/models';
 import { App } from './app';
+import { AlertsFeed } from './alerts/alerts-feed';
 import { AuthService } from './auth/auth.service';
 import { LiveConnection, SocketState } from './live/live-connection';
 
@@ -12,9 +13,11 @@ describe('App', () => {
   const state = signal<SocketState>('connecting');
   const currentUser = signal<User | null>(null);
   const auth = { user: currentUser, logout: vi.fn() };
+  const openAlerts = signal(0);
 
   beforeEach(() => {
     currentUser.set(null);
+    openAlerts.set(0);
     auth.logout.mockReset().mockResolvedValue(undefined);
   });
 
@@ -25,6 +28,7 @@ describe('App', () => {
         provideRouter([]),
         { provide: LiveConnection, useValue: { state } },
         { provide: AuthService, useValue: auth },
+        { provide: AlertsFeed, useValue: { openCount: openAlerts } },
       ],
     });
     const fixture = TestBed.createComponent(App);
@@ -58,5 +62,16 @@ describe('App', () => {
     signOut?.click();
 
     expect(auth.logout).toHaveBeenCalled();
+  });
+
+  it('shows the number of open alerts in the navigation', async () => {
+    currentUser.set(user());
+    openAlerts.set(3);
+    const page = await render();
+
+    const alertsLink = [...page.querySelectorAll('nav a')].find((a) =>
+      a.textContent?.includes('Alerts'),
+    );
+    expect(alertsLink?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Alerts 3 open');
   });
 });

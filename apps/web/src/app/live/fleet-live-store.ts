@@ -14,6 +14,7 @@ export interface VesselLiveState {
 type FleetState = ReadonlyMap<string, VesselLiveState>;
 
 export function applyEvent(state: FleetState, event: LiveEvent): FleetState {
+  if (event.type === 'alert') return state; // alerts have their own feed
   const current = state.get(event.vessel_id) ?? {
     vesselId: event.vessel_id,
     connection: null,
