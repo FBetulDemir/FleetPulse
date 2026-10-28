@@ -1,0 +1,23 @@
+# Production: HTTPS for FLEETPULSE_DOMAIN. Caddy obtains and renews the certificate
+# from Let's Encrypt automatically and redirects HTTP to HTTPS.
+import security-headers.caddy
+
+{$FLEETPULSE_DOMAIN} {
+	import security_headers
+	header Strict-Transport-Security "max-age=31536000"
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle /ws {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

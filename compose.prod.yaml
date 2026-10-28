@@ -1,0 +1,96 @@
+# Production overrides, used together with compose.yaml:
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+#
+# Secrets come from a .env file next to this one (see .env.example). Compose refuses to
+# start if one is missing. Only Caddy is reachable from outside, on ports 80 and 443;
+# every other service is only reachable inside the Docker network.
+name: fleetpulse
+
+x-production: &production
+  FLEETPULSE_ENVIRONMENT: production
+  FLEETPULSE_DATABASE_URL: postgresql+asyncpg://fleetpulse:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/fleetpulse
+  FLEETPULSE_JWT_SECRET: ${FLEETPULSE_JWT_SECRET:?set FLEETPULSE_JWT_SECRET in .env}
+  FLEETPULSE_DEMO_PASSWORD: ${FLEETPULSE_DEMO_PASSWORD:?set FLEETPULSE_DEMO_PASSWORD in .env}
+
+services:
+  mosquitto:
+    ports: !reset []
+    volumes:
+      - ./infra/mosquitto/mosquitto.prod.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./infra/mosquitto/acl:/mosquitto/config/acl:ro
+      - mosquitto-data:/mosquitto/data
+    environment:
+      MQTT_SIMULATOR_PASSWORD: ${MQTT_SIMULATOR_PASSWORD:?set MQTT_SIMULATOR_PASSWORD in .env}
+      MQTT_WORKER_PASSWORD: ${MQTT_WORKER_PASSWORD:?set MQTT_WORKER_PASSWORD in .env}
+      MQTT_API_PASSWORD: ${MQTT_API_PASSWORD:?set MQTT_API_PASSWORD in .env}
+      MQTT_HEALTHCHECK_PASSWORD: ${MQTT_HEALTHCHECK_PASSWORD:?set MQTT_HEALTHCHECK_PASSWORD in .env}
+    # Build the password file from the environment, then start the broker.
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        rm -f /mosquitto/data/passwd
+        touch /mosquitto/data/passwd
+        chmod 0700 /mosquitto/data/passwd
+        mosquitto_passwd -b /mosquitto/data/passwd simulator "$$MQTT_SIMULATOR_PASSWORD"
+        mosquitto_passwd -b /mosquitto/data/passwd worker "$$MQTT_WORKER_PASSWORD"
+        mosquitto_passwd -b /mosquitto/data/passwd api "$$MQTT_API_PASSWORD"
+        mosquitto_passwd -b /mosquitto/data/passwd healthcheck "$$MQTT_HEALTHCHECK_PASSWORD"
+        chown mosquitto:mosquitto /mosquitto/data/passwd
+        exec mosquitto -c /mosquitto/config/mosquitto.conf
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mosquitto_sub -u healthcheck -P "$$MQTT_HEALTHCHECK_PASSWORD" -t '$$SYS/broker/uptime' -C 1 -W 3
+
+  influxdb:
+    # Runs without authentication, which is acceptable only because it has no
+    # published port: nothing outside the Docker network can reach it.
+    ports: !reset []
+
+  postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    restart: unless-stopped
+
+  migrate:
+    environment:
+      <<: *production
+
+  worker:
+    environment:
+      <<: *production
+      FLEETPULSE_MQTT_USERNAME: worker
+      FLEETPULSE_MQTT_PASSWORD: ${MQTT_WORKER_PASSWORD}
+
+  api:
+    ports: !reset []
+    environment:
+      <<: *production
+      FLEETPULSE_MQTT_USERNAME: api
+      FLEETPULSE_MQTT_PASSWORD: ${MQTT_API_PASSWORD}
+
+  simulator:
+    environment:
+      FLEETPULSE_MQTT_USERNAME: simulator
+      FLEETPULSE_MQTT_PASSWORD: ${MQTT_SIMULATOR_PASSWORD}
+
+  web:
+    # !override replaces the list; !reset (used above) would only empty it.
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.prod", "--adapter", "caddyfile"]
+    environment:
+      FLEETPULSE_DOMAIN: ${FLEETPULSE_DOMAIN:?set FLEETPULSE_DOMAIN in .env}
+    volumes:
+      # Certificates must survive restarts, or Let's Encrypt rate limits are hit quickly.
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

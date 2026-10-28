@@ -1,0 +1,25 @@
+# Each service may only use the topics its job needs. A leaked simulator password,
+# for example, cannot publish fake alerts or send commands to vessels.
+
+# Simulated vessel devices: send readings and status, receive commands.
+user simulator
+topic write fleetpulse/v1/vessels/+/telemetry
+topic write fleetpulse/v1/vessels/+/status
+topic read fleetpulse/v1/vessels/+/commands
+
+# Ingestion worker: read readings and status, publish alert changes.
+user worker
+topic read fleetpulse/v1/vessels/+/telemetry
+topic read fleetpulse/v1/vessels/+/status
+topic write fleetpulse/v1/alerts
+
+# API: relay live data to browsers, publish acknowledgements, send demo commands.
+user api
+topic read fleetpulse/v1/vessels/+/telemetry
+topic read fleetpulse/v1/vessels/+/status
+topic readwrite fleetpulse/v1/alerts
+topic write fleetpulse/v1/vessels/+/commands
+
+# Container health check only.
+user healthcheck
+topic read $SYS/broker/uptime
