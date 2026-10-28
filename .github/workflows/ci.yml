@@ -56,6 +56,22 @@ jobs:
       - run: npm run test:ci
       - run: npm run build
 
+  terraform:
+    name: Terraform format and validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+      - run: terraform fmt -check -diff
+      # No backend and no credentials: this checks the configuration, not the cloud.
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
   stack:
     name: End-to-end tests
     runs-on: ubuntu-latest

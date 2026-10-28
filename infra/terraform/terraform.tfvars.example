@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. Values come from the OCI console.
+tenancy_ocid       = "ocid1.tenancy.oc1..aaaa..."
+user_ocid          = "ocid1.user.oc1..aaaa..."
+fingerprint        = "12:34:56:..."
+private_key_path   = "~/.oci/oci_api_key.pem"
+region             = "eu-stockholm-1"
+ssh_public_key     = "ssh-ed25519 AAAA... you@laptop"
+admin_cidr         = "203.0.113.7/32"
+budget_alert_email = "you@example.com"
