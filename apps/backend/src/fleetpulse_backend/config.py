@@ -18,6 +18,13 @@ class Settings(BaseSettings):
 
     mqtt_host: str = "localhost"
     mqtt_port: int = 1883
+    # The local broker allows anonymous clients; production gives each service a login.
+    mqtt_username: str | None = None
+    mqtt_password: SecretStr | None = None
+
+    @property
+    def mqtt_password_value(self) -> str | None:
+        return self.mqtt_password.get_secret_value() if self.mqtt_password else None
 
     influx_url: str = "http://localhost:8181"
     influx_database: str = "fleetpulse"

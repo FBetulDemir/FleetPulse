@@ -1,0 +1,24 @@
+# Security headers for every response, used by both the local and the production site.
+(security_headers) {
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		# Do not advertise the server software.
+		-Server
+	}
+
+	# Two policies with non-overlapping matchers, so which one applies never depends on
+	# the order Caddy runs header directives in.
+	@api_docs path /api/docs /api/docs/*
+	@app not path /api/docs /api/docs/*
+
+	# Only load code from this site. Styles allow 'unsafe-inline' because Angular
+	# Material and Leaflet set inline styles; scripts do not.
+	header @app Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+	# FastAPI's interactive API docs load Swagger UI from a CDN and start it with an
+	# inline script, so that one page gets a looser policy.
+	header @api_docs Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+}

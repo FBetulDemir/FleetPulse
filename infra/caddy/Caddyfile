@@ -1,6 +1,11 @@
 # Local development: serves the Angular app and proxies the API on one origin,
 # so the browser needs no CORS and the WebSocket shares the page's origin.
+# The same security headers as production apply, so a blocked resource shows up here
+# (and in CI) first. See Caddyfile.prod for the HTTPS site.
+import security-headers.caddy
+
 :80 {
+	import security_headers
 	encode zstd gzip
 
 	handle /api/* {

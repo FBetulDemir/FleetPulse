@@ -128,7 +128,8 @@ services:
     ports:
       - "127.0.0.1:8080:80"
     volumes:
-      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The whole folder, so the Caddyfiles can import the shared security headers.
+      - ./infra/caddy:/etc/caddy:ro
     depends_on:
       api:
         condition: service_healthy
