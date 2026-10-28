@@ -47,12 +47,13 @@
               @if (status().lowBattery) {
                 <span class="tile-note">low</span>
               }
+              <!-- Inside the <dd>: a <dl> group may only contain <dt> and <dd>. -->
+              <mat-progress-bar
+                mode="determinate"
+                [value]="reading.battery_percent"
+                aria-label="Battery level"
+              />
             </dd>
-            <mat-progress-bar
-              mode="determinate"
-              [value]="reading.battery_percent"
-              aria-label="Battery level"
-            />
           </div>
           <div class="tile">
             <dt>Battery voltage</dt>
