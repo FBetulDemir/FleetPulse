@@ -64,6 +64,12 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      - name: Production configuration is valid
+        run: |
+          # Placeholder values: this only checks that the overlay and .env.example agree.
+          sed 's/=$/=placeholder-for-ci-only-0123456789abcdef/' .env.example > ci.env
+          docker compose --env-file ci.env -f compose.yaml -f compose.prod.yaml config --quiet
+          rm ci.env
       - name: Start the stack
         run: docker compose up --build --detach
       - name: Wait for telemetry to flow end to end

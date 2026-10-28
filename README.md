@@ -70,6 +70,10 @@ npm run lint
 
 Adding an npm package on Windows can leave Linux builds of some tools out of `package-lock.json`, which breaks `npm ci` in Docker and CI. If that happens, delete `node_modules` and `package-lock.json` and run `npm install` again.
 
+## Deployment
+
+Production runs the same Compose stack with `compose.prod.yaml` (HTTPS, secrets, broker logins, only Caddy exposed). See [docs/deployment.md](docs/deployment.md).
+
 ## License
 
 [MIT](LICENSE)
