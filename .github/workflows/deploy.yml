@@ -1,0 +1,66 @@
+name: Deploy
+
+# Deploys the exact commit that passed CI on main. Off until the repository variable
+# DEPLOY_ENABLED is "true" (Settings > Secrets and variables > Actions > Variables).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # never interrupt a deployment halfway
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.DEPLOY_DOMAIN }}
+    env:
+      # Passed through the environment, never pasted into shell commands.
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      HOST: ${{ vars.DEPLOY_HOST }}
+      DOMAIN: ${{ vars.DEPLOY_DOMAIN }}
+    steps:
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # The server's host key is pinned, so a different machine is refused.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Update and restart the stack
+        run: |
+          ssh -i ~/.ssh/id_deploy "ubuntu@$HOST" bash -s -- "$COMMIT" <<'SCRIPT'
+          set -euo pipefail
+          cd /opt/fleetpulse
+          git fetch --quiet origin
+          git checkout --quiet --detach "$1"
+          docker compose -f compose.yaml -f compose.prod.yaml up -d --build --remove-orphans
+          docker image prune -f > /dev/null
+          SCRIPT
+
+      - name: Check that the site is up
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS "https://$DOMAIN/api/v1/health/ready" > /dev/null; then
+              echo "https://$DOMAIN is ready"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::https://$DOMAIN did not become ready within 5 minutes"
+          exit 1
