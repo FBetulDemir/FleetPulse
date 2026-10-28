@@ -66,6 +66,7 @@ npm install
 npm start             # http://localhost:4200, proxies /api and /ws to localhost:8000
 npm test
 npm run lint
+npm run e2e           # end-to-end tests in a real browser, against the running Docker stack
 ```
 
 Adding an npm package on Windows can leave Linux builds of some tools out of `package-lock.json`, which breaks `npm ci` in Docker and CI. If that happens, delete `node_modules` and `package-lock.json` and run `npm install` again.

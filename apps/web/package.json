@@ -9,9 +9,10 @@
     "test": "ng test",
     "lint": "ng lint",
     "test:ci": "ng test --watch=false",
-    "format": "prettier --write src",
-    "format:check": "prettier --check src",
-    "api:generate": "npx --yes openapi-typescript@7.13.0 openapi.json --output src/app/api/schema.d.ts"
+    "format": "prettier --write src e2e playwright.config.ts",
+    "format:check": "prettier --check src e2e playwright.config.ts",
+    "api:generate": "npx --yes openapi-typescript@7.13.0 openapi.json --output src/app/api/schema.d.ts",
+    "e2e": "playwright test"
   },
   "private": true,
   "packageManager": "npm@11.5.2",
@@ -34,7 +35,9 @@
     "@angular/build": "^22.2.4",
     "@angular/cli": "^22.2.4",
     "@angular/compiler-cli": "^22.2.0",
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@types/leaflet": "^1.9.22",
     "angular-eslint": "22.6.0",
     "eslint": "^10.12.0",
