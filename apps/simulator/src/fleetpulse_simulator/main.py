@@ -137,6 +137,8 @@ async def run_vessel(vessel: Vessel, settings: Settings) -> None:
                 settings.mqtt_port,
                 identifier=vessel.device_id,
                 will=will,
+                username=settings.mqtt_username,
+                password=settings.mqtt_password_value,
             ) as client:
                 await client.subscribe(command_topic(vessel.vessel_id), qos=1)
                 await client.publish(

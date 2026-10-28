@@ -90,7 +90,11 @@ class MqttLink:
         while True:
             try:
                 async with aiomqtt.Client(
-                    self._settings.mqtt_host, self._settings.mqtt_port, identifier="fleetpulse-api"
+                    self._settings.mqtt_host,
+                    self._settings.mqtt_port,
+                    identifier="fleetpulse-api",
+                    username=self._settings.mqtt_username,
+                    password=self._settings.mqtt_password_value,
                 ) as client:
                     await client.subscribe(TELEMETRY_SUBSCRIPTION, qos=0)
                     await client.subscribe(STATUS_SUBSCRIPTION, qos=1)

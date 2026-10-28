@@ -85,7 +85,11 @@ async def run_mqtt(
     while True:
         try:
             async with aiomqtt.Client(
-                settings.mqtt_host, settings.mqtt_port, identifier="fleetpulse-worker"
+                settings.mqtt_host,
+                settings.mqtt_port,
+                identifier="fleetpulse-worker",
+                username=settings.mqtt_username,
+                password=settings.mqtt_password_value,
             ) as client:
                 await client.subscribe(TELEMETRY_SUBSCRIPTION, qos=0)
                 await client.subscribe(STATUS_SUBSCRIPTION, qos=1)
